@@ -10,14 +10,14 @@ import (
 	"keyraccoon/internal/services"
 )
 
-func SetupAPIKeyRoutes(app *fiber.App, db *gorm.DB) {
+func SetupAPIKeyRoutes(router fiber.Router, db *gorm.DB) {
 	apiKeyRepo := repositories.NewAPIKeyRepository(db)
 	userRepo := repositories.NewUserRepository(db)
 
 	apiKeyService := services.NewAPIKeyService(apiKeyRepo, userRepo)
 	apiKeyHandler := handlers.NewAPIKeyHandler(apiKeyService)
 
-	apikeys := app.Group("/api-keys", middleware.AuthMiddleware)
+	apikeys := router.Group("/api-keys", middleware.AuthMiddleware)
 
 	apikeys.Post("", apiKeyHandler.CreateAPIKey)
 	apikeys.Get("", apiKeyHandler.GetUserAPIKeys)

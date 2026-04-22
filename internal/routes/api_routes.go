@@ -11,7 +11,7 @@ import (
 )
 
 // SetupAPIV1Routes registers OpenAI-compatible API v1 routes.
-func SetupAPIV1Routes(app *fiber.App, db *gorm.DB) {
+func SetupAPIV1Routes(router fiber.Router, db *gorm.DB) {
 	apiKeyRepo := repositories.NewAPIKeyRepository(db)
 	userRepo := repositories.NewUserRepository(db)
 	channelRepo := repositories.NewChannelRepository(db)
@@ -25,7 +25,7 @@ func SetupAPIV1Routes(app *fiber.App, db *gorm.DB) {
 
 	chatHandler := handlers.NewChatHandler(apiKeyService, channelService, proxyService)
 
-	api := app.Group("/api/v1", middleware.APIKeyAuthMiddleware(apiKeyService))
+	api := router.Group("/v1", middleware.APIKeyAuthMiddleware(apiKeyService))
 
 	api.Post("/chat/completions", chatHandler.ChatCompletion)
 	api.Post("/embeddings", chatHandler.Embeddings)

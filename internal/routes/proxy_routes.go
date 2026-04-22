@@ -10,14 +10,14 @@ import (
 	"keyraccoon/internal/services"
 )
 
-func SetupProxyRoutes(app *fiber.App, db *gorm.DB) {
+func SetupProxyRoutes(router fiber.Router, db *gorm.DB) {
 	proxyRepo := repositories.NewProxyRepository(db)
 	proxyService := services.NewProxyService(proxyRepo)
 	proxyHandler := handlers.NewProxyHandler(proxyService)
 
-	app.Post("/proxies/check", proxyHandler.TestProxy)
+	router.Post("/proxies/check", proxyHandler.TestProxy)
 
-	proxies := app.Group("/proxies", middleware.AuthMiddleware, middleware.AdminMiddleware)
+	proxies := router.Group("/proxies", middleware.AuthMiddleware, middleware.AdminMiddleware)
 
 	proxies.Post("", proxyHandler.AddProxy)
 	proxies.Get("", proxyHandler.GetAllProxies)

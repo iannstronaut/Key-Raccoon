@@ -10,18 +10,18 @@ import (
 	"keyraccoon/internal/services"
 )
 
-func SetupUserRoutes(app *fiber.App, db *gorm.DB) {
+func SetupUserRoutes(router fiber.Router, db *gorm.DB) {
 	userRepo := repositories.NewUserRepository(db)
 	userService := services.NewUserService(userRepo)
 	userHandler := handlers.NewUserHandler(userService)
 	authHandler := handlers.NewAuthHandler()
 
-	auth := app.Group("/auth")
+	auth := router.Group("/auth")
 	auth.Post("/login", userHandler.Login)
 	auth.Post("/refresh", authHandler.RefreshToken)
 	auth.Post("/logout", middleware.AuthMiddleware, authHandler.Logout)
 
-	users := app.Group("/users", middleware.AuthMiddleware)
+	users := router.Group("/users", middleware.AuthMiddleware)
 	users.Post("", middleware.AdminMiddleware, userHandler.CreateUser)
 	users.Get("", middleware.AdminMiddleware, userHandler.GetAllUsers)
 	users.Get("/:id", userHandler.GetUser)
