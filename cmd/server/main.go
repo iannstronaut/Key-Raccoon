@@ -38,7 +38,23 @@ func main() {
 		ErrorHandler: handlers.ErrorHandler,
 	})
 
-	app.Use(cors.New())
+	corsConfig := cors.Config{
+		AllowMethods:     "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Requested-With",
+		ExposeHeaders:    "Content-Length,Content-Type",
+		AllowCredentials: true,
+		MaxAge:           86400,
+	}
+
+	if cfg.CORSOrigin == "*" {
+		corsConfig.AllowOriginsFunc = func(origin string) bool {
+			return true
+		}
+	} else {
+		corsConfig.AllowOrigins = cfg.CORSOrigin
+	}
+
+	app.Use(cors.New(corsConfig))
 	appmiddleware.SecurityMiddleware(app)
 	app.Use(appmiddleware.RequestLogger())
 	handlers.RegisterHealthRoutes(app)
