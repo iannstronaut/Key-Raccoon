@@ -1,0 +1,89 @@
+# ==============================================================================
+# Go
+# ==============================================================================
+# Hasil build binary (sesuaikan dengan nama aplikasi Anda nantinya)
+/bin/
+/build/
+/app
+/cli
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test output, profiling, dan coverage
+*.test
+*.out
+coverage.txt
+coverage.html
+profile.out
+
+# Dependency directory (opsional, tergantung Anda commit vendor atau tidak)
+# Biasanya di Go modern (Go Modules), vendor/ diabaikan kecuali spesifik dibutuhkan.
+/vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+.gocache/
+.gomodcache/
+
+# ==============================================================================
+# Environment Variables & Secrets (SANGAT PENTING)
+# ==============================================================================
+# Jangan pernah commit file .env yang berisi API Key OpenAI, DB URL, atau Secret JWT
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+/config/.env.*
+/config/.env
+
+# ==============================================================================
+# Logs & Databases
+# ==============================================================================
+# File log lokal
+*.log
+/logs/
+
+# Jika menggunakan SQLite untuk testing lokal
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# ==============================================================================
+# OS & IDEs / Editors
+# ==============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains IDEs (GoLand, IntelliJ, dll)
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Vim / Emacs
+*~
+*.swp
+*.swo
+.netrwhist
