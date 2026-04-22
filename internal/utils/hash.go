@@ -2,8 +2,12 @@ package utils
 
 import "golang.org/x/crypto/bcrypt"
 
+const (
+	CostOfHashing = 8
+)
+
 func HashPassword(password string) (string, error) {
-	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), CostOfHashing)
 	if err != nil {
 		return "", err
 	}
@@ -11,6 +15,10 @@ func HashPassword(password string) (string, error) {
 	return string(hashed), nil
 }
 
+func VerifyPassword(password, hashedPassword string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+}
+
 func CheckPasswordHash(password, hashedPassword string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)) == nil
+	return VerifyPassword(password, hashedPassword) == nil
 }

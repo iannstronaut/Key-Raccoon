@@ -30,18 +30,30 @@ func Init() {
 }
 
 func Info(message string, keyvals ...any) {
+	if instance == nil {
+		Init()
+	}
 	logWith(instance.infoLogger, message, keyvals...)
 }
 
 func Warn(message string, keyvals ...any) {
+	if instance == nil {
+		Init()
+	}
 	logWith(instance.warnLogger, message, keyvals...)
 }
 
 func Error(message string, keyvals ...any) {
+	if instance == nil {
+		Init()
+	}
 	logWith(instance.errorLogger, message, keyvals...)
 }
 
 func Fatal(message string, keyvals ...any) {
+	if instance == nil {
+		Init()
+	}
 	logWith(instance.errorLogger, message, keyvals...)
 }
 
