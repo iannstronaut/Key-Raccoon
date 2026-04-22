@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Login — KeyRaccoon</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="/dashboard/css/style.css">
+	<style>
+		.login-container {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			min-height: 100vh;
+			padding: 24px;
+		}
+		.login-card {
+			width: 100%;
+			max-width: 400px;
+			padding: 40px;
+		}
+		.login-logo {
+			text-align: center;
+			margin-bottom: 32px;
+		}
+		.login-logo h1 {
+			font-size: 28px;
+			font-weight: 600;
+			color: var(--text-primary);
+			letter-spacing: 0;
+		}
+		.login-logo p {
+			font-size: 14px;
+			color: var(--text-tertiary);
+			margin-top: 8px;
+			letter-spacing: 0.2px;
+		}
+		.form-group {
+			margin-bottom: 20px;
+		}
+		.form-group label {
+			display: block;
+			font-size: 14px;
+			font-weight: 500;
+			color: var(--text-tertiary);
+			margin-bottom: 8px;
+			letter-spacing: 0.2px;
+		}
+		.form-group input {
+			width: 100%;
+			padding: 12px 14px;
+			font-size: 16px;
+			font-weight: 500;
+			color: var(--text-primary);
+			background: var(--bg-deep);
+			border: 1px solid var(--border-subtle);
+			border-radius: 8px;
+			outline: none;
+			transition: border-color 0.2s, box-shadow 0.2s;
+			letter-spacing: 0.2px;
+			font-family: 'Inter', system-ui, sans-serif;
+		}
+		.form-group input:focus {
+			border-color: var(--accent-blue);
+			box-shadow: 0 0 0 3px var(--blue-transparent);
+		}
+		.form-group input::placeholder {
+			color: var(--text-muted);
+			font-weight: 400;
+		}
+		.btn-login {
+			width: 100%;
+			padding: 12px;
+			font-size: 16px;
+			font-weight: 600;
+			letter-spacing: 0.3px;
+			color: var(--button-fg);
+			background: hsla(0, 0%, 100%, 0.815);
+			border: none;
+			border-radius: 86px;
+			cursor: pointer;
+			transition: opacity 0.3s, background 0.3s;
+			margin-top: 8px;
+			font-family: 'Inter', system-ui, sans-serif;
+		}
+		.btn-login:hover {
+			background: hsl(0, 0%, 100%);
+		}
+		.btn-login:active {
+			opacity: 0.9;
+		}
+		.login-error {
+			margin-top: 16px;
+			padding: 12px;
+			background: var(--red-transparent);
+			border: 1px solid var(--accent-red);
+			border-radius: 8px;
+			color: var(--accent-red);
+			font-size: 14px;
+			font-weight: 500;
+			display: none;
+			letter-spacing: 0.2px;
+		}
+		.login-error.active {
+			display: block;
+		}
+	</style>
+</head>
+<body>
+	<div class="login-container">
+		<div class="card login-card">
+			<div class="login-logo">
+				<h1>KeyRaccoon</h1>
+				<p>Admin Dashboard</p>
+			</div>
+			<form id="login-form" onsubmit="handleLogin(event)">
+				<div class="form-group">
+					<label for="email">Email</label>
+					<input type="email" id="email" placeholder="admin@keyraccoon.com" required autocomplete="email">
+				</div>
+				<div class="form-group">
+					<label for="password">Password</label>
+					<input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+				</div>
+				<button type="submit" class="btn-login">Sign In</button>
+				<div id="login-error" class="login-error"></div>
+			</form>
+		</div>
+	</div>
+
+	<script src="/dashboard/js/api.js"></script>
+	<script>
+		async function handleLogin(e) {
+			e.preventDefault();
+			const email = document.getElementById('email').value;
+			const password = document.getElementById('password').value;
+			const errorEl = document.getElementById('login-error');
+			errorEl.classList.remove('active');
+
+			try {
+				const response = await fetch('/auth/login', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ email, password })
+				});
+				const data = await response.json();
+
+				if (response.ok && data.access_token) {
+					API.setToken(data.access_token);
+					window.location.href = '/dashboard';
+				} else {
+					errorEl.textContent = data.error || 'Invalid credentials';
+					errorEl.classList.add('active');
+				}
+			} catch (err) {
+				errorEl.textContent = 'Network error. Please try again.';
+				errorEl.classList.add('active');
+			}
+		}
+	</script>
+</body>
+</html>

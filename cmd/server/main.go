@@ -39,6 +39,7 @@ func main() {
 	})
 
 	app.Use(cors.New())
+	appmiddleware.SecurityMiddleware(app)
 	app.Use(appmiddleware.RequestLogger())
 	handlers.RegisterHealthRoutes(app)
 	routes.SetupUserRoutes(app, config.GetDB())
@@ -46,6 +47,7 @@ func main() {
 	routes.SetupAPIKeyRoutes(app, config.GetDB())
 	routes.SetupProxyRoutes(app, config.GetDB())
 	routes.SetupAPIV1Routes(app, config.GetDB())
+	routes.SetupDashboardRoutes(app)
 
 	proxyRepo := repositories.NewProxyRepository(config.GetDB())
 	proxyService := services.NewProxyService(proxyRepo)
