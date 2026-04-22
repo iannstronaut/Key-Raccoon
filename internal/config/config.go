@@ -31,6 +31,8 @@ type Config struct {
 
 	AdminEmail    string
 	AdminPassword string
+
+	CORSOrigin string
 }
 
 var (
@@ -62,6 +64,7 @@ func Init() (*Config, error) {
 			JWTExpire:     getEnvInt("JWT_EXPIRE", 60),
 			AdminEmail:    getEnv("ADMIN_EMAIL", "admin@keyraccoon.com"),
 			AdminPassword: getEnv("ADMIN_PASSWORD", "AdminPassword123"),
+			CORSOrigin:    getEnv("CORS_ORIGIN", "*"),
 		}
 	})
 
