@@ -8,9 +8,11 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 
 	"keyraccoon/internal/config"
+	"keyraccoon/internal/database/repositories"
 	"keyraccoon/internal/handlers"
 	appmiddleware "keyraccoon/internal/middleware"
 	"keyraccoon/internal/routes"
+	"keyraccoon/internal/services"
 	"keyraccoon/pkg/logger"
 )
 
@@ -42,6 +44,13 @@ func main() {
 	routes.SetupUserRoutes(app, config.GetDB())
 	routes.SetupChannelRoutes(app, config.GetDB())
 	routes.SetupAPIKeyRoutes(app, config.GetDB())
+	routes.SetupProxyRoutes(app, config.GetDB())
+	routes.SetupAPIV1Routes(app, config.GetDB())
+
+	proxyRepo := repositories.NewProxyRepository(config.GetDB())
+	proxyService := services.NewProxyService(proxyRepo)
+	scheduler := services.NewSchedulerService(proxyService)
+	scheduler.StartInBackground()
 
 	addr := fmt.Sprintf("%s:%s", cfg.ServerHost, cfg.ServerPort)
 	logger.Info("server starting", "address", addr, "environment", cfg.Environment)
