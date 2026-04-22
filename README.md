@@ -1,5 +1,7 @@
 # KeyRaccoon
 
+![KeyRaccoon Banner](public/keyraccoon_banner.png)
+
 Production-ready OpenAI-compatible API proxy dengan user management, channel routing, dan proxy management.
 
 ## Features
