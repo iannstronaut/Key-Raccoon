@@ -28,6 +28,7 @@ go.work
 go.work.sum
 .gocache/
 .gomodcache/
+.dev/
 
 # ==============================================================================
 # Environment Variables & Secrets (SANGAT PENTING)
