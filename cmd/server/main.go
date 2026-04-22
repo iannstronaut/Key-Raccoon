@@ -40,6 +40,7 @@ func main() {
 	app.Use(appmiddleware.RequestLogger())
 	handlers.RegisterHealthRoutes(app)
 	routes.SetupUserRoutes(app, config.GetDB())
+	routes.SetupChannelRoutes(app, config.GetDB())
 
 	addr := fmt.Sprintf("%s:%s", cfg.ServerHost, cfg.ServerPort)
 	logger.Info("server starting", "address", addr, "environment", cfg.Environment)

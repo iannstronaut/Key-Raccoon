@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/glebarez/sqlite"
@@ -86,10 +87,16 @@ func TestUserRepositoryCRUDAndUsage(t *testing.T) {
 func openUserRepository(t *testing.T) *repositories.UserRepository {
 	t.Helper()
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	dbPath := filepath.Join(t.TempDir(), "user_repository.db")
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("gorm.Open() error = %v", err)
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("db.DB() error = %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
 	if err := db.AutoMigrate(&models.User{}); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
 	}

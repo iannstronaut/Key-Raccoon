@@ -1,6 +1,7 @@
 package database_test
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/glebarez/sqlite"
@@ -39,10 +40,16 @@ func TestSeedCreatesSuperadminOnce(t *testing.T) {
 func openTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	dbPath := filepath.Join(t.TempDir(), "seed.db")
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("gorm.Open() error = %v", err)
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("db.DB() error = %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
 	if err := db.AutoMigrate(
 		&models.User{},
 		&models.Channel{},

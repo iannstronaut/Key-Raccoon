@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
@@ -42,10 +43,16 @@ func TestHealthCheckWithDependencies(t *testing.T) {
 	config.ResetForTesting()
 	t.Cleanup(config.ResetForTesting)
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	dbPath := filepath.Join(t.TempDir(), "health.db")
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("gorm.Open() error = %v", err)
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("db.DB() error = %v", err)
+	}
+	t.Cleanup(func() { _ = sqlDB.Close() })
 	config.SetDBForTesting(db)
 
 	mini, err := miniredis.Run()
