@@ -10,7 +10,7 @@ import (
 	"keyraccoon/internal/services"
 )
 
-func SetupChannelRoutes(app *fiber.App, db *gorm.DB) {
+func SetupChannelRoutes(router fiber.Router, db *gorm.DB) {
 	channelRepo := repositories.NewChannelRepository(db)
 	apiKeyRepo := repositories.NewChannelAPIKeyRepository(db)
 	modelRepo := repositories.NewModelRepository(db)
@@ -19,7 +19,7 @@ func SetupChannelRoutes(app *fiber.App, db *gorm.DB) {
 	channelService := services.NewChannelService(channelRepo, apiKeyRepo, modelRepo, userRepo)
 	channelHandler := handlers.NewChannelHandler(channelService)
 
-	channels := app.Group("/channels", middleware.AuthMiddleware)
+	channels := router.Group("/channels", middleware.AuthMiddleware)
 	channels.Get("", channelHandler.GetAllChannels)
 	channels.Get("/:id", channelHandler.GetChannel)
 

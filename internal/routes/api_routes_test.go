@@ -23,7 +23,7 @@ func TestAPIV1RoutesUnauthorized(t *testing.T) {
 	app := fiber.New()
 	routes.SetupAPIV1Routes(app, db)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/models", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("app.Test() error = %v", err)
@@ -38,7 +38,7 @@ func TestAPIV1RoutesInvalidKey(t *testing.T) {
 	app := fiber.New()
 	routes.SetupAPIV1Routes(app, db)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/models", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	req.Header.Set("Authorization", "Bearer invalid-key")
 	resp, err := app.Test(req)
 	if err != nil {
@@ -54,7 +54,7 @@ func TestAPIV1RoutesListModels(t *testing.T) {
 	app := fiber.New()
 	routes.SetupAPIV1Routes(app, db)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/models", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	req.Header.Set("Authorization", "Bearer "+apiKey.Key)
 	resp, err := app.Test(req)
 	if err != nil {
@@ -79,7 +79,7 @@ func TestAPIV1RoutesEmbeddings(t *testing.T) {
 	app := fiber.New()
 	routes.SetupAPIV1Routes(app, db)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/embeddings", bytes.NewReader([]byte(`{}`)))
+	req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", bytes.NewReader([]byte(`{}`)))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey.Key)
 	resp, err := app.Test(req)
@@ -97,7 +97,7 @@ func TestAPIV1RoutesChatCompletionValidation(t *testing.T) {
 	routes.SetupAPIV1Routes(app, db)
 
 	// Missing model
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/completions", bytes.NewReader([]byte(`{"messages": [{"role": "user", "content": "Hello"}]}`)))
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader([]byte(`{"messages": [{"role": "user", "content": "Hello"}]}`)))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey.Key)
 	resp, err := app.Test(req)
@@ -109,7 +109,7 @@ func TestAPIV1RoutesChatCompletionValidation(t *testing.T) {
 	}
 
 	// Missing messages
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/chat/completions", bytes.NewReader([]byte(`{"model": "gpt-4"}`)))
+	req = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader([]byte(`{"model": "gpt-4"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey.Key)
 	resp, err = app.Test(req)

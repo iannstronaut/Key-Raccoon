@@ -58,11 +58,15 @@ func main() {
 	appmiddleware.SecurityMiddleware(app)
 	app.Use(appmiddleware.RequestLogger())
 	handlers.RegisterHealthRoutes(app)
-	routes.SetupUserRoutes(app, config.GetDB())
-	routes.SetupChannelRoutes(app, config.GetDB())
-	routes.SetupAPIKeyRoutes(app, config.GetDB())
-	routes.SetupProxyRoutes(app, config.GetDB())
-	routes.SetupAPIV1Routes(app, config.GetDB())
+
+	// API routes under /api prefix
+	api := app.Group("/api")
+	routes.SetupUserRoutes(api, config.GetDB())
+	routes.SetupChannelRoutes(api, config.GetDB())
+	routes.SetupAPIKeyRoutes(api, config.GetDB())
+	routes.SetupProxyRoutes(api, config.GetDB())
+	routes.SetupAPIV1Routes(api, config.GetDB())
+
 	routes.SetupDashboardRoutes(app)
 
 	proxyRepo := repositories.NewProxyRepository(config.GetDB())

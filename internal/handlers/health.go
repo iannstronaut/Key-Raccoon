@@ -9,8 +9,8 @@ import (
 	"keyraccoon/internal/config"
 )
 
-func RegisterHealthRoutes(app *fiber.App) {
-	app.Get("/health", HealthCheck)
+func RegisterHealthRoutes(router fiber.Router) {
+	router.Get("/health", HealthCheck)
 }
 
 func HealthCheck(c *fiber.Ctx) error {
