@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Key, Cpu, Save, X } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Key, Cpu, X, RefreshCw } from 'lucide-react'
 import { api } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -31,6 +31,13 @@ interface Model {
   system_prompt: string
 }
 
+interface DiscoveredModel {
+  id: string
+  object: string
+  created?: number
+  owned_by?: string
+}
+
 export default function ChannelDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -51,6 +58,13 @@ export default function ChannelDetailPage() {
     system_prompt: '',
   })
   const [savingModel, setSavingModel] = useState(false)
+  
+  // Autocheck Models state
+  const [showAutocheckModal, setShowAutocheckModal] = useState(false)
+  const [fetchingModels, setFetchingModels] = useState(false)
+  const [availableModels, setAvailableModels] = useState<DiscoveredModel[]>([])
+  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set())
+  const [savingBulkModels, setSavingBulkModels] = useState(false)
 
   const canEdit = hasPermission('edit:channels')
   const canDelete = hasPermission('delete:channels')
@@ -78,13 +92,11 @@ export default function ChannelDetailPage() {
     
     setSavingApiKeys(true)
     try {
-      // Split by newline and filter empty lines
       const keys = newApiKeys
         .split('\n')
         .map(k => k.trim())
         .filter(k => k.length > 0)
       
-      // Add each key
       for (const key of keys) {
         await api.addChannelAPIKey(parseInt(id), key)
       }
@@ -142,6 +154,93 @@ export default function ChannelDetailPage() {
     } catch (err) {
       console.error('Failed to delete model:', err)
       alert('Failed to delete model')
+    }
+  }
+
+  async function handleAutocheckModels() {
+    if (!channel?.endpoint) {
+      alert('No endpoint configured for this channel')
+      return
+    }
+
+    // Check if channel has active API keys
+    const activeKey = channel.api_keys?.find(k => k.is_active)
+    if (!activeKey) {
+      alert('No active API key found. Please add an API key first.')
+      return
+    }
+
+    setFetchingModels(true)
+    setShowAutocheckModal(true)
+    
+    try {
+      const endpoint = channel.endpoint.replace(/\/$/, '')
+      const response = await fetch(`${endpoint}/models`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${activeKey.api_key}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch models from endpoint')
+      }
+
+      const data = await response.json()
+      
+      let models = []
+      if (data.data && Array.isArray(data.data)) {
+        models = data.data
+      } else if (Array.isArray(data)) {
+        models = data
+      }
+
+      setAvailableModels(models)
+      setSelectedModels(new Set())
+    } catch (err) {
+      console.error('Failed to fetch models:', err)
+      alert('Failed to fetch models from endpoint. Make sure the endpoint is correct and accessible.')
+      setShowAutocheckModal(false)
+    } finally {
+      setFetchingModels(false)
+    }
+  }
+
+  function selectAllModels() {
+    setSelectedModels(new Set(availableModels.map(m => m.id)))
+  }
+
+  function deselectAllModels() {
+    setSelectedModels(new Set())
+  }
+
+  async function handleSaveBulkModels() {
+    if (!id || selectedModels.size === 0) return
+
+    setSavingBulkModels(true)
+    try {
+      for (const modelId of selectedModels) {
+        const model = availableModels.find(m => m.id === modelId)
+        if (model) {
+          await api.addChannelModel(parseInt(id), {
+            name: model.id,
+            display_name: model.id,
+            token_price: 0,
+            system_prompt: '',
+          })
+        }
+      }
+
+      setShowAutocheckModal(false)
+      setAvailableModels([])
+      setSelectedModels(new Set())
+      loadChannel()
+    } catch (err) {
+      console.error('Failed to save models:', err)
+      alert('Failed to save some models')
+    } finally {
+      setSavingBulkModels(false)
     }
   }
 
@@ -237,7 +336,6 @@ export default function ChannelDetailPage() {
           </h3>
         </div>
 
-        {/* Add API Keys Form (Bulk) */}
         {canEdit && (
           <div className="mb-4 p-3 glass-subtle rounded-lg">
             <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
@@ -246,7 +344,7 @@ export default function ChannelDetailPage() {
             <textarea
               value={newApiKeys}
               onChange={(e) => setNewApiKeys(e.target.value)}
-              placeholder="sk-1234567890abcdef&#10;sk-0987654321fedcba&#10;sk-abcdef1234567890"
+              placeholder="sk-1234567890abcdef&#10;sk-0987654321fedcba"
               rows={4}
               className="input-dark resize-none font-mono text-[12px]"
             />
@@ -262,7 +360,6 @@ export default function ChannelDetailPage() {
           </div>
         )}
 
-        {/* API Keys List */}
         <div className="space-y-2">
           {channel.api_keys && channel.api_keys.length > 0 ? (
             channel.api_keys.map((key) => (
@@ -306,18 +403,31 @@ export default function ChannelDetailPage() {
             <Cpu className="w-4 h-4" />
             Models
           </h3>
-          {canEdit && !showModelForm && (
-            <button
-              onClick={() => setShowModelForm(true)}
-              className="btn-primary text-[12px] px-3 py-1.5 flex items-center gap-1"
-            >
-              <Plus className="w-3 h-3" />
-              Add Model
-            </button>
+          {canEdit && (
+            <div className="flex items-center gap-2">
+              {channel.endpoint && (
+                <button
+                  onClick={handleAutocheckModels}
+                  disabled={fetchingModels}
+                  className="btn-secondary text-[12px] px-3 py-1.5 flex items-center gap-1"
+                >
+                  <RefreshCw className={`w-3 h-3 ${fetchingModels ? 'animate-spin' : ''}`} />
+                  {fetchingModels ? 'Checking...' : 'Autocheck Models'}
+                </button>
+              )}
+              {!showModelForm && (
+                <button
+                  onClick={() => setShowModelForm(true)}
+                  className="btn-primary text-[12px] px-3 py-1.5 flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add Model
+                </button>
+              )}
+            </div>
           )}
         </div>
 
-        {/* Add Model Form */}
         {canEdit && showModelForm && (
           <div className="mb-4 p-3 glass-subtle rounded-lg">
             <div className="flex items-center justify-between mb-3">
@@ -400,7 +510,6 @@ export default function ChannelDetailPage() {
           </div>
         )}
 
-        {/* Models List */}
         <div className="space-y-2">
           {channel.models && channel.models.length > 0 ? (
             channel.models.map((model) => (
@@ -448,6 +557,126 @@ export default function ChannelDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Autocheck Models Modal */}
+      {showAutocheckModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay">
+          <div className="glass-strong w-full max-w-2xl max-h-[80vh] flex flex-col relative rounded-xl shadow-2xl border border-white/[0.1]">
+            <div className="p-5 border-b border-white/[0.08]">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[18px] font-medium text-white tracking-body">
+                  Available Models from Endpoint
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowAutocheckModal(false)
+                    setSelectedModels(new Set())
+                  }}
+                  className="p-1.5 text-text-muted hover:text-white transition-all rounded-lg hover:bg-white/[0.1]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-[12px] text-text-muted mt-1">
+                Select models to add to this channel
+              </p>
+              {availableModels.length > 0 && (
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={selectAllModels}
+                    className="text-[12px] text-raycast-blue hover:underline"
+                  >
+                    Select All
+                  </button>
+                  <span className="text-text-dim">|</span>
+                  <button
+                    onClick={deselectAllModels}
+                    className="text-[12px] text-raycast-blue hover:underline"
+                  >
+                    Deselect All
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {fetchingModels ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-6 h-6 text-raycast-blue animate-spin" />
+                  <p className="text-[14px] text-text-muted ml-3">Fetching models...</p>
+                </div>
+              ) : availableModels.length === 0 ? (
+                <p className="text-[14px] text-text-muted text-center py-8">
+                  No models found from endpoint
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {availableModels.map((model) => (
+                    <label
+                      key={model.id}
+                      className="flex items-start gap-3 p-3 glass-subtle rounded-lg hover:bg-white/[0.04] transition-all cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedModels.has(model.id)}
+                        onChange={(e) => {
+                          const newSelected = new Set(selectedModels)
+                          if (e.target.checked) {
+                            newSelected.add(model.id)
+                          } else {
+                            newSelected.delete(model.id)
+                          }
+                          setSelectedModels(newSelected)
+                        }}
+                        className="mt-1 w-4 h-4 rounded border-white/[0.2] bg-white/[0.05] text-raycast-blue focus:ring-raycast-blue focus:ring-offset-0"
+                      />
+                      <div className="flex-1">
+                        <p className="text-[14px] font-medium text-text-secondary tracking-body">
+                          {model.id}
+                        </p>
+                        {model.owned_by && (
+                          <p className="text-[12px] text-text-muted tracking-body mt-0.5">
+                            Owned by: {model.owned_by}
+                          </p>
+                        )}
+                        {model.created && (
+                          <p className="text-[10px] text-text-dim tracking-body mt-0.5">
+                            Created: {new Date(model.created * 1000).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 border-t border-white/[0.08] flex items-center justify-between">
+              <p className="text-[12px] text-text-muted">
+                {selectedModels.size} model{selectedModels.size !== 1 ? 's' : ''} selected
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowAutocheckModal(false)
+                    setSelectedModels(new Set())
+                  }}
+                  className="btn-secondary text-[12px] px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveBulkModels}
+                  disabled={selectedModels.size === 0 || savingBulkModels}
+                  className="btn-primary text-[12px] px-3 py-1.5 disabled:opacity-50"
+                >
+                  {savingBulkModels ? 'Saving...' : `Add ${selectedModels.size} Model${selectedModels.size !== 1 ? 's' : ''}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

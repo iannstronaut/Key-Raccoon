@@ -144,6 +144,31 @@ func (s *ChannelService) AddAPIKey(channelID uint) (*models.ChannelAPIKey, error
 	return apiKey, nil
 }
 
+func (s *ChannelService) AddAPIKeyWithValue(channelID uint, apiKeyValue string) (*models.ChannelAPIKey, error) {
+	channel, err := s.channelRepo.GetByID(channelID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate API key is not empty
+	apiKeyValue = strings.TrimSpace(apiKeyValue)
+	if apiKeyValue == "" {
+		return nil, errors.New("api key cannot be empty")
+	}
+
+	apiKey := &models.ChannelAPIKey{
+		ChannelID: channel.ID,
+		APIKey:    apiKeyValue,
+		IsActive:  true,
+	}
+
+	if err := s.apiKeyRepo.Create(apiKey); err != nil {
+		return nil, fmt.Errorf("failed to create api key: %w", err)
+	}
+
+	return apiKey, nil
+}
+
 func (s *ChannelService) GetChannelAPIKeys(channelID uint) ([]models.ChannelAPIKey, error) {
 	if _, err := s.channelRepo.GetByID(channelID); err != nil {
 		return nil, err

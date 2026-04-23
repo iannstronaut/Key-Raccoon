@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -20,6 +22,15 @@ type UserAPIKeyRepository struct {
 
 func NewUserAPIKeyRepository(db *gorm.DB) *UserAPIKeyRepository {
 	return &UserAPIKeyRepository{db: db}
+}
+
+// GenerateAPIKey generates a random API key string with "kr_" prefix
+func (r *UserAPIKeyRepository) GenerateAPIKey() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return "kr-" + hex.EncodeToString(bytes), nil
 }
 
 func (r *UserAPIKeyRepository) Create(apiKey *models.UserAPIKey) error {
@@ -131,4 +142,146 @@ func (r *UserAPIKeyRepository) GetActiveByKey(key string) (*models.UserAPIKey, e
 		return nil, ErrUserAPIKeyNotFound
 	}
 	return &apiKey, err
+}
+
+// UpdateFields updates specific fields of a user API key
+func (r *UserAPIKeyRepository) UpdateFields(keyID uint, updates map[string]any) error {
+	result := r.db.Model(&models.UserAPIKey{}).Where("id = ?", keyID).Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrUserAPIKeyNotFound
+	}
+	return nil
+}
+
+// Disable deactivates a user API key
+func (r *UserAPIKeyRepository) Disable(id uint) error {
+	result := r.db.Model(&models.UserAPIKey{}).Where("id = ?", id).Update("is_active", false)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrUserAPIKeyNotFound
+	}
+	return nil
+}
+
+// UpdateTokenUsage increments token usage
+func (r *UserAPIKeyRepository) UpdateTokenUsage(keyID uint, tokens int64) error {
+	result := r.db.Model(&models.UserAPIKey{}).Where("id = ?", keyID).
+		Update("token_used", gorm.Expr("token_used + ?", tokens))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrUserAPIKeyNotFound
+	}
+	return nil
+}
+
+// UpdateCreditUsage increments credit usage
+func (r *UserAPIKeyRepository) UpdateCreditUsage(keyID uint, credit float64) error {
+	result := r.db.Model(&models.UserAPIKey{}).Where("id = ?", keyID).
+		Update("credit_used", gorm.Expr("credit_used + ?", credit))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrUserAPIKeyNotFound
+	}
+	return nil
+}
+
+// UpdateLastUsed updates the last used timestamp
+func (r *UserAPIKeyRepository) UpdateLastUsed(keyID uint) error {
+	now := time.Now().UTC()
+	return r.UpdateFields(keyID, map[string]any{"last_used_at": now, "last_used": now})
+}
+
+// HasTokenAvailable checks if a user API key has enough token quota
+func (r *UserAPIKeyRepository) HasTokenAvailable(keyID uint, requiredToken int64) (bool, error) {
+	var apiKey models.UserAPIKey
+	err := r.db.Select("token_limit, token_used").First(&apiKey, keyID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, ErrUserAPIKeyNotFound
+	}
+	if err != nil {
+		return false, err
+	}
+
+	if apiKey.TokenLimit == -1 || apiKey.TokenLimit == 0 {
+		return true, nil // unlimited
+	}
+
+	return (apiKey.TokenUsed + requiredToken) <= apiKey.TokenLimit, nil
+}
+
+// HasCreditAvailable checks if a user API key has enough credit quota
+func (r *UserAPIKeyRepository) HasCreditAvailable(keyID uint, requiredCredit float64) (bool, error) {
+	var apiKey models.UserAPIKey
+	err := r.db.Select("credit_limit, credit_used").First(&apiKey, keyID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, ErrUserAPIKeyNotFound
+	}
+	if err != nil {
+		return false, err
+	}
+
+	if apiKey.CreditLimit == -1 || apiKey.CreditLimit == 0 {
+		return true, nil // unlimited
+	}
+
+	return (apiKey.CreditUsed + requiredCredit) <= apiKey.CreditLimit, nil
+}
+
+// BindChannel binds a channel to a user API key
+func (r *UserAPIKeyRepository) BindChannel(apiKeyID, channelID uint) error {
+	var apiKey models.UserAPIKey
+	if err := r.db.First(&apiKey, apiKeyID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrUserAPIKeyNotFound
+		}
+		return err
+	}
+
+	var channel models.Channel
+	if err := r.db.First(&channel, channelID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrChannelNotFound
+		}
+		return err
+	}
+
+	return r.db.Model(&apiKey).Association("Channels").Append(&channel)
+}
+
+// UnbindChannel unbinds a channel from a user API key
+func (r *UserAPIKeyRepository) UnbindChannel(apiKeyID, channelID uint) error {
+	var apiKey models.UserAPIKey
+	if err := r.db.First(&apiKey, apiKeyID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrUserAPIKeyNotFound
+		}
+		return err
+	}
+
+	var channel models.Channel
+	if err := r.db.First(&channel, channelID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrChannelNotFound
+		}
+		return err
+	}
+
+	return r.db.Model(&apiKey).Association("Channels").Delete(&channel)
+}
+
+// GetActiveByUserID retrieves active API keys for a user
+func (r *UserAPIKeyRepository) GetActiveByUserID(userID uint) ([]models.UserAPIKey, error) {
+	var apiKeys []models.UserAPIKey
+	err := r.db.Where("user_id = ? AND is_active = ?", userID, true).
+		Preload("Channels").Find(&apiKeys).Error
+	return apiKeys, err
 }

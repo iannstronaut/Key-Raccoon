@@ -8,7 +8,6 @@ export default function UserAPIKeysPage() {
   const [apiKeys, setApiKeys] = useState<UserAPIKey[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [channels, setChannels] = useState<Channel[]>([])
-  const [allModels, setAllModels] = useState<Model[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [showKey, setShowKey] = useState<{ [key: number]: boolean }>({})
@@ -20,6 +19,8 @@ export default function UserAPIKeysPage() {
     channel_ids: [] as number[],
     model_ids: [] as number[],
   })
+  const [selectedChannelModels, setSelectedChannelModels] = useState<Model[]>([])
+  const [loadingModels, setLoadingModels] = useState(false)
   const { hasPermission, user } = useAuth()
   
   const canEdit = hasPermission('edit:users')
@@ -45,26 +46,48 @@ export default function UserAPIKeysPage() {
       setApiKeys(apiKeysData?.api_keys || [])
       setUsers(usersData?.users || [])
       setChannels(channelsData?.channels || [])
-
-      // Load all models from all channels
-      const models: Model[] = []
-      for (const channel of channelsData?.channels || []) {
-        try {
-          const modelsRes = await api.getChannelModels(channel.id)
-          const modelsData = modelsRes as { models?: Model[] }
-          if (modelsData?.models) {
-            models.push(...modelsData.models)
-          }
-        } catch (err) {
-          console.error(`Failed to load models for channel ${channel.id}:`, err)
-        }
-      }
-      setAllModels(models)
     } catch (err) {
       console.error('Failed to load data:', err)
     } finally {
       setLoading(false)
     }
+  }
+
+  async function loadModelsForSelectedChannels(channelIds: number[]) {
+    if (channelIds.length === 0) {
+      setSelectedChannelModels([])
+      return
+    }
+
+    setLoadingModels(true)
+    try {
+      const models: Model[] = []
+      for (const channelId of channelIds) {
+        try {
+          const modelsRes = await api.getChannelModels(channelId)
+          const modelsData = modelsRes as { models?: Model[] }
+          if (modelsData?.models) {
+            models.push(...modelsData.models)
+          }
+        } catch (err) {
+          console.error(`Failed to load models for channel ${channelId}:`, err)
+        }
+      }
+      setSelectedChannelModels(models)
+    } catch (err) {
+      console.error('Failed to load models:', err)
+    } finally {
+      setLoadingModels(false)
+    }
+  }
+
+  function handleChannelToggle(channelId: number) {
+    const newChannelIds = formData.channel_ids.includes(channelId)
+      ? formData.channel_ids.filter(id => id !== channelId)
+      : [...formData.channel_ids, channelId]
+    
+    setFormData({ ...formData, channel_ids: newChannelIds, model_ids: [] })
+    loadModelsForSelectedChannels(newChannelIds)
   }
 
   async function handleCreateAPIKey(e: React.FormEvent) {
@@ -344,13 +367,7 @@ export default function UserAPIKeysPage() {
                       <input
                         type="checkbox"
                         checked={formData.channel_ids.includes(channel.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({ ...formData, channel_ids: [...formData.channel_ids, channel.id] })
-                          } else {
-                            setFormData({ ...formData, channel_ids: formData.channel_ids.filter(id => id !== channel.id) })
-                          }
-                        }}
+                        onChange={() => handleChannelToggle(channel.id)}
                         className="rounded"
                       />
                       <span className="text-[12px] text-text-secondary">{channel.name} ({channel.type})</span>
@@ -361,27 +378,45 @@ export default function UserAPIKeysPage() {
 
               <div>
                 <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
-                  Allowed Models (empty = all models)
+                  Allowed Models (empty = all models from selected channels)
                 </label>
-                <div className="glass-subtle p-3 rounded-lg max-h-32 overflow-y-auto space-y-1">
-                  {allModels.map((model) => (
-                    <label key={model.id} className="flex items-center gap-2 cursor-pointer hover:bg-white/[0.02] p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={formData.model_ids.includes(model.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({ ...formData, model_ids: [...formData.model_ids, model.id] })
-                          } else {
-                            setFormData({ ...formData, model_ids: formData.model_ids.filter(id => id !== model.id) })
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <span className="text-[12px] text-text-secondary">{model.display_name || model.name}</span>
-                    </label>
-                  ))}
-                </div>
+                {formData.channel_ids.length === 0 ? (
+                  <div className="glass-subtle p-3 rounded-lg text-center">
+                    <p className="text-[12px] text-text-muted">
+                      Please select channels first to see available models
+                    </p>
+                  </div>
+                ) : loadingModels ? (
+                  <div className="glass-subtle p-3 rounded-lg text-center">
+                    <p className="text-[12px] text-text-muted">Loading models...</p>
+                  </div>
+                ) : selectedChannelModels.length === 0 ? (
+                  <div className="glass-subtle p-3 rounded-lg text-center">
+                    <p className="text-[12px] text-text-muted">
+                      No models found in selected channels
+                    </p>
+                  </div>
+                ) : (
+                  <div className="glass-subtle p-3 rounded-lg max-h-32 overflow-y-auto space-y-1">
+                    {selectedChannelModels.map((model) => (
+                      <label key={model.id} className="flex items-center gap-2 cursor-pointer hover:bg-white/[0.02] p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={formData.model_ids.includes(model.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({ ...formData, model_ids: [...formData.model_ids, model.id] })
+                            } else {
+                              setFormData({ ...formData, model_ids: formData.model_ids.filter(id => id !== model.id) })
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-[12px] text-text-secondary">{model.display_name || model.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-2">

@@ -149,7 +149,22 @@ func (h *ChannelHandler) AddAPIKey(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid channel id"})
 	}
 
-	apiKey, err := h.channelService.AddAPIKey(channelID)
+	var req struct {
+		APIKey string `json:"api_key"`
+	}
+
+	// Try to parse body, but it's optional
+	_ = c.BodyParser(&req)
+
+	var apiKey *models.ChannelAPIKey
+	if req.APIKey != "" {
+		// Add with specific value
+		apiKey, err = h.channelService.AddAPIKeyWithValue(channelID, req.APIKey)
+	} else {
+		// Auto-generate
+		apiKey, err = h.channelService.AddAPIKey(channelID)
+	}
+
 	if err != nil {
 		return channelStatusFromError(c, err)
 	}

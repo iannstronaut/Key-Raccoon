@@ -1,66 +1,75 @@
-import { useState, useEffect } from 'react'
-import { Plus, Pencil, Trash2, X, Eye } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import { api } from '../services/api'
-import { useAuth } from '../contexts/AuthContext'
-import type { Channel } from '../types'
+import { useState, useEffect } from "react";
+import { Plus, Pencil, Trash2, X, Eye } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { api } from "../services/api";
+import { useAuth } from "../contexts/AuthContext";
+import type { Channel } from "../types";
 
 export default function ChannelsPage() {
-  const navigate = useNavigate()
-  const [channels, setChannels] = useState<Channel[]>([])
-  const [loading, setLoading] = useState(true)
-  const [modalOpen, setModalOpen] = useState(false)
+  const navigate = useNavigate();
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    type: 'openai',
-    endpoint: '',
-    description: '',
-  })
-  const { hasPermission } = useAuth()
-  
-  const canEdit = hasPermission('edit:channels')
-  const canDelete = hasPermission('delete:channels')
+    name: "",
+    type: "openai",
+    endpoint: "",
+    description: "",
+  });
+  const { hasPermission } = useAuth();
+
+  const canEdit = hasPermission("edit:channels");
+  const canDelete = hasPermission("delete:channels");
 
   useEffect(() => {
-    loadChannels()
-  }, [])
+    loadChannels();
+  }, []);
 
   async function loadChannels() {
-    setLoading(true)
+    setLoading(true);
     try {
-      const response = await api.getChannels()
-      const data = response as { channels?: Channel[] }
-      setChannels(data?.channels ?? [])
+      const response = await api.getChannels();
+      const data = response as { channels?: Channel[] };
+      setChannels(data?.channels ?? []);
     } catch (err) {
-      console.error('Failed to load channels:', err)
+      console.error("Failed to load channels:", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   async function handleCreateChannel(e: React.FormEvent) {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      const response = await api.createChannel(formData)
-      if (response && typeof response === 'object' && !('error' in response)) {
-        setModalOpen(false)
-        setFormData({ name: '', type: 'openai', description: '' })
-        loadChannels()
+      const response = await api.createChannel(formData);
+      if (response && typeof response === "object" && !("error" in response)) {
+        setModalOpen(false);
+        setFormData({
+          name: "",
+          type: "",
+          endpoint: "",
+          description: "",
+        });
+        loadChannels();
       } else {
-        alert('Error: ' + ((response as { error?: string })?.error || 'Failed to create channel'))
+        alert(
+          "Error: " +
+            ((response as { error?: string })?.error ||
+              "Failed to create channel"),
+        );
       }
     } catch {
-      alert('Error creating channel')
+      alert("Error creating channel");
     }
   }
 
   async function handleDeleteChannel(id: number) {
-    if (!confirm('Are you sure you want to delete this channel?')) return
+    if (!confirm("Are you sure you want to delete this channel?")) return;
     try {
-      await api.deleteChannel(id)
-      loadChannels()
+      await api.deleteChannel(id);
+      loadChannels();
     } catch {
-      alert('Error deleting channel')
+      alert("Error deleting channel");
     }
   }
 
@@ -72,11 +81,16 @@ export default function ChannelsPage() {
             Channels
           </h2>
           <p className="text-[14px] text-text-muted mt-0.5 tracking-body">
-            {canEdit ? 'Manage AI provider channels' : 'View AI provider channels'}
+            {canEdit
+              ? "Manage AI provider channels"
+              : "View AI provider channels"}
           </p>
         </div>
         {canEdit && (
-          <button onClick={() => setModalOpen(true)} className="btn-primary flex items-center gap-2">
+          <button
+            onClick={() => setModalOpen(true)}
+            className="btn-primary flex items-center gap-2"
+          >
             <Plus className="w-4 h-4" />
             Add Channel
           </button>
@@ -113,19 +127,28 @@ export default function ChannelsPage() {
             <tbody className="divide-y divide-border-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={canEdit || canDelete ? 6 : 5} className="px-4 py-6 text-center text-text-muted tracking-body text-[14px]">
+                  <td
+                    colSpan={canEdit || canDelete ? 6 : 5}
+                    className="px-4 py-6 text-center text-text-muted tracking-body text-[14px]"
+                  >
                     Loading...
                   </td>
                 </tr>
               ) : channels.length === 0 ? (
                 <tr>
-                  <td colSpan={canEdit || canDelete ? 6 : 5} className="px-4 py-6 text-center text-text-muted tracking-body text-[14px]">
+                  <td
+                    colSpan={canEdit || canDelete ? 6 : 5}
+                    className="px-4 py-6 text-center text-text-muted tracking-body text-[14px]"
+                  >
                     No channels found
                   </td>
                 </tr>
               ) : (
                 channels.map((channel) => (
-                  <tr key={channel.id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr
+                    key={channel.id}
+                    className="hover:bg-white/[0.02] transition-colors"
+                  >
                     <td className="px-4 py-3 text-[14px] text-text-secondary tracking-body">
                       {channel.name}
                     </td>
@@ -133,8 +156,10 @@ export default function ChannelsPage() {
                       <span className="badge">{channel.type}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`badge ${channel.is_active ? 'badge-success' : 'badge-danger'}`}>
-                        {channel.is_active ? 'Active' : 'Inactive'}
+                      <span
+                        className={`badge ${channel.is_active ? "badge-success" : "badge-danger"}`}
+                      >
+                        {channel.is_active ? "Active" : "Inactive"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[14px] text-text-muted tracking-body">
@@ -198,7 +223,9 @@ export default function ChannelsPage() {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   placeholder="0penAI Production"
                   required
                   className="input-dark"
@@ -210,15 +237,18 @@ export default function ChannelsPage() {
                 </label>
                 <select
                   value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, type: e.target.value })
+                  }
                   className="input-dark"
                 >
-                  <option value="openai">0penAI</option>
-                  <option value="anthr0pic">Anthr0pic</option>
-                  <option value="custom">Custom (0penAI SDK)</option>
+                  <option value="" selected>
+                    Pilih Tipe
+                  </option>
+                  <option value="custom">Custom (Endpoint)</option>
                 </select>
               </div>
-              {formData.type === 'custom' && (
+              {formData.type === "custom" && (
                 <div>
                   <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
                     Endpoint URL *
@@ -226,9 +256,11 @@ export default function ChannelsPage() {
                   <input
                     type="url"
                     value={formData.endpoint}
-                    onChange={(e) => setFormData({ ...formData, endpoint: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, endpoint: e.target.value })
+                    }
                     placeholder="https://api.example.com/v1"
-                    required={formData.type === 'custom'}
+                    required={formData.type === "custom"}
                     className="input-dark"
                   />
                   <p className="text-[10px] text-text-dim mt-1 tracking-body">
@@ -243,7 +275,9 @@ export default function ChannelsPage() {
                 <input
                   type="text"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   placeholder="Optional description"
                   className="input-dark"
                 />
@@ -265,5 +299,5 @@ export default function ChannelsPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

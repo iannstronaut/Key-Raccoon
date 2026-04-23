@@ -20,25 +20,25 @@ import (
 
 // ChatHandler handles OpenAI-compatible API endpoints.
 type ChatHandler struct {
-	apiKeyService  *services.APIKeyService
-	channelService *services.ChannelService
-	proxyService   *services.ProxyService
+	userAPIKeyService *services.UserAPIKeyService
+	channelService    *services.ChannelService
+	proxyService      *services.ProxyService
 	httpClient     *http.Client
 	openaiBaseURL  string
 }
 
 // NewChatHandler creates a new ChatHandler.
 func NewChatHandler(
-	apiKeyService *services.APIKeyService,
+	userAPIKeyService *services.UserAPIKeyService,
 	channelService *services.ChannelService,
 	proxyService *services.ProxyService,
 ) *ChatHandler {
 	return &ChatHandler{
-		apiKeyService:  apiKeyService,
-		channelService: channelService,
-		proxyService:   proxyService,
-		httpClient:     http.DefaultClient,
-		openaiBaseURL:  "https://api.openai.com/v1",
+		userAPIKeyService: userAPIKeyService,
+		channelService:    channelService,
+		proxyService:      proxyService,
+		httpClient:        http.DefaultClient,
+		openaiBaseURL:     "https://api.openai.com/v1",
 	}
 }
 
@@ -95,7 +95,7 @@ func (h *ChatHandler) ChatCompletion(c *fiber.Ctx) error {
 	inputTokens := utils.CountTokens(string(msgBytes))
 
 	// Check token availability
-	hasToken, err := h.apiKeyService.HasTokenAvailable(keyID, inputTokens)
+	hasToken, err := h.userAPIKeyService.HasTokenAvailable(keyID, inputTokens)
 	if err != nil || !hasToken {
 		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
 			"error": fiber.Map{
@@ -106,10 +106,13 @@ func (h *ChatHandler) ChatCompletion(c *fiber.Ctx) error {
 	}
 
 	// Record input usage
-	_ = h.apiKeyService.RecordTokenUsage(keyID, inputTokens)
+	_ = h.userAPIKeyService.RecordTokenUsage(keyID, inputTokens)
 
 	// Select first channel (simple round-robin or first-available)
 	channel := &channels[0]
+	
+	// Log channel info for debugging
+	logger.Info(fmt.Sprintf("Using channel: %s (ID: %d, Endpoint: %s)", channel.Name, channel.ID, channel.Endpoint))
 
 	// Get channel API keys
 	apiKeys, err := h.channelService.GetChannelAPIKeys(channel.ID)
@@ -142,7 +145,7 @@ func (h *ChatHandler) ChatCompletion(c *fiber.Ctx) error {
 	if err := json.Unmarshal(respBody, &responseData); err == nil {
 		if usage, ok := responseData["usage"].(map[string]interface{}); ok {
 			if outputTokens, ok := usage["completion_tokens"].(float64); ok {
-				_ = h.apiKeyService.RecordTokenUsage(keyID, int64(outputTokens))
+				_ = h.userAPIKeyService.RecordTokenUsage(keyID, int64(outputTokens))
 			}
 		}
 	}
@@ -209,7 +212,13 @@ func (h *ChatHandler) forwardRequest(
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := h.openaiBaseURL + endpoint
+	// Use channel endpoint if available, otherwise use default openaiBaseURL
+	baseURL := h.openaiBaseURL
+	if channel.Endpoint != "" {
+		baseURL = channel.Endpoint
+	}
+	
+	url := baseURL + endpoint
 	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

@@ -18,10 +18,10 @@ import (
 
 func TestAPIKeyAuthMiddlewareMissingHeader(t *testing.T) {
 	db := openAPIKeyAuthDB(t)
-	apiKeyService := setupAPIKeyAuthService(db)
+	userAPIKeyService := setupAPIKeyAuthService(db)
 
 	app := fiber.New()
-	app.Get("/test", middleware.APIKeyAuthMiddleware(apiKeyService), func(c *fiber.Ctx) error {
+	app.Get("/test", middleware.APIKeyAuthMiddleware(userAPIKeyService), func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
@@ -33,10 +33,10 @@ func TestAPIKeyAuthMiddlewareMissingHeader(t *testing.T) {
 
 func TestAPIKeyAuthMiddlewareInvalidFormat(t *testing.T) {
 	db := openAPIKeyAuthDB(t)
-	apiKeyService := setupAPIKeyAuthService(db)
+	userAPIKeyService := setupAPIKeyAuthService(db)
 
 	app := fiber.New()
-	app.Get("/test", middleware.APIKeyAuthMiddleware(apiKeyService), func(c *fiber.Ctx) error {
+	app.Get("/test", middleware.APIKeyAuthMiddleware(userAPIKeyService), func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
@@ -50,10 +50,10 @@ func TestAPIKeyAuthMiddlewareInvalidFormat(t *testing.T) {
 
 func TestAPIKeyAuthMiddlewareInvalidKey(t *testing.T) {
 	db := openAPIKeyAuthDB(t)
-	apiKeyService := setupAPIKeyAuthService(db)
+	userAPIKeyService := setupAPIKeyAuthService(db)
 
 	app := fiber.New()
-	app.Get("/test", middleware.APIKeyAuthMiddleware(apiKeyService), func(c *fiber.Ctx) error {
+	app.Get("/test", middleware.APIKeyAuthMiddleware(userAPIKeyService), func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
@@ -67,7 +67,7 @@ func TestAPIKeyAuthMiddlewareInvalidKey(t *testing.T) {
 
 func TestAPIKeyAuthMiddlewareSuccess(t *testing.T) {
 	db := openAPIKeyAuthDB(t)
-	apiKeyService := setupAPIKeyAuthService(db)
+	userAPIKeyService := setupAPIKeyAuthService(db)
 
 	user := &models.User{
 		Email:    "apikeyuser@example.com",
@@ -81,13 +81,13 @@ func TestAPIKeyAuthMiddlewareSuccess(t *testing.T) {
 		t.Fatalf("userRepo.Create() error = %v", err)
 	}
 
-	apiKey, err := apiKeyService.CreateAPIKey(user.ID, "Test Key", 1000, 100)
+	apiKey, err := userAPIKeyService.CreateAPIKey(user.ID, "Test Key", 1000, nil, []uint{}, []uint{})
 	if err != nil {
 		t.Fatalf("CreateAPIKey() error = %v", err)
 	}
 
 	app := fiber.New()
-	app.Get("/test", middleware.APIKeyAuthMiddleware(apiKeyService), func(c *fiber.Ctx) error {
+	app.Get("/test", middleware.APIKeyAuthMiddleware(userAPIKeyService), func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"api_key_id": c.Locals("api_key_id"),
 			"user_id":    c.Locals("user_id"),
@@ -129,14 +129,16 @@ func openAPIKeyAuthDB(t *testing.T) *gorm.DB {
 		t.Fatalf("db.DB() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	if err := db.AutoMigrate(&models.User{}, &models.Channel{}, &models.APIKey{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Channel{}, &models.UserAPIKey{}, &models.UserAPIKeyModel{}); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
 	}
 	return db
 }
 
-func setupAPIKeyAuthService(db *gorm.DB) *services.APIKeyService {
-	apiKeyRepo := repositories.NewAPIKeyRepository(db)
+func setupAPIKeyAuthService(db *gorm.DB) *services.UserAPIKeyService {
+	userAPIKeyRepo := repositories.NewUserAPIKeyRepository(db)
 	userRepo := repositories.NewUserRepository(db)
-	return services.NewAPIKeyService(apiKeyRepo, userRepo)
+	channelRepo := repositories.NewChannelRepository(db)
+	modelRepo := repositories.NewModelRepository(db)
+	return services.NewUserAPIKeyService(userAPIKeyRepo, userRepo, channelRepo, modelRepo)
 }

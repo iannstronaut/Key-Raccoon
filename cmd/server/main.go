@@ -63,8 +63,8 @@ func main() {
 	api := app.Group("/api")
 	routes.SetupUserRoutes(api, config.GetDB())
 	routes.SetupChannelRoutes(api, config.GetDB())
-	routes.SetupAPIKeyRoutes(api, config.GetDB())
 	routes.SetupProxyRoutes(api, config.GetDB())
+	routes.SetupUserAPIKeyRoutes(api, config.GetDB())
 	routes.SetupAPIV1Routes(api, config.GetDB())
 
 	// Note: Dashboard/frontend routes are served by a separate React+Vite service.

@@ -51,8 +51,9 @@ func InitDatabase(cfg *Config) error {
 		&models.Channel{},
 		&models.ChannelAPIKey{},
 		&models.Model{},
-		&models.APIKey{},
 		&models.Proxy{},
+		&models.UserAPIKey{},
+		&models.UserAPIKeyModel{},
 	); err != nil {
 		return fmt.Errorf("auto migrate: %w", err)
 	}
