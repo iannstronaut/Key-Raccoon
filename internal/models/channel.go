@@ -10,6 +10,7 @@ type Channel struct {
 	ID          uint           `gorm:"primaryKey" json:"id"`
 	Name        string         `gorm:"size:255;not null" json:"name"`
 	Type        string         `gorm:"size:100;not null;default:openai" json:"type"`
+	Endpoint    string         `gorm:"size:500" json:"endpoint,omitempty"`
 	IsActive    bool           `gorm:"not null;default:true" json:"is_active"`
 	Description string         `gorm:"type:text" json:"description"`
 	CreatedAt   time.Time      `json:"created_at"`

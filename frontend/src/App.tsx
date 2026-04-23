@@ -8,6 +8,7 @@ import ChannelsPage from './pages/ChannelsPage'
 import ChannelDetailPage from './pages/ChannelDetailPage'
 import ProxiesPage from './pages/ProxiesPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import UserAPIKeysPage from './pages/UserAPIKeysPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -37,6 +38,7 @@ function AppRoutes() {
         <Route path="channels/:id" element={<ChannelDetailPage />} />
         <Route path="proxies" element={<ProxiesPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="api-keys" element={<UserAPIKeysPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

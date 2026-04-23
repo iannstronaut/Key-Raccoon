@@ -8,6 +8,7 @@ interface Channel {
   id: number
   name: string
   type: string
+  endpoint?: string
   description: string
   is_active: boolean
   api_keys?: APIKey[]
@@ -204,6 +205,14 @@ export default function ChannelDetailPage() {
               </span>
             </p>
           </div>
+          {channel.endpoint && (
+            <div className="col-span-2">
+              <p className="text-[12px] text-text-muted tracking-body">Endpoint</p>
+              <p className="text-[12px] font-mono text-text-secondary tracking-body mt-1 break-all">
+                {channel.endpoint}
+              </p>
+            </div>
+          )}
           <div>
             <p className="text-[12px] text-text-muted tracking-body">API Keys</p>
             <p className="text-[14px] text-text-secondary tracking-body mt-1">

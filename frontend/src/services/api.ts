@@ -120,6 +120,7 @@ class APIService {
   async createChannel(channel: {
     name: string;
     type: string;
+    endpoint?: string;
     description?: string;
   }) {
     return this.request<unknown>("POST", "/channels", channel);
@@ -192,6 +193,69 @@ class APIService {
         "Content-Type": "application/json",
       },
     }).then((response) => response.json());
+  }
+
+  // User API Keys
+  async getUserAPIKeys(limit = 50, offset = 0) {
+    return this.request<{ api_keys: unknown[]; total: number }>(
+      "GET",
+      `/user-api-keys?limit=${limit}&offset=${offset}`,
+    );
+  }
+
+  async getUserAPIKey(id: number) {
+    return this.request<unknown>("GET", `/user-api-keys/${id}`);
+  }
+
+  async getUserAPIKeysByUser(userId: number) {
+    return this.request<{ api_keys: unknown[]; total: number }>(
+      "GET",
+      `/user-api-keys/user/${userId}`,
+    );
+  }
+
+  async createUserAPIKey(data: {
+    user_id: number;
+    name: string;
+    usage_limit: number;
+    expires_at?: string;
+    channel_ids: number[];
+    model_ids: number[];
+  }) {
+    return this.request<unknown>("POST", "/user-api-keys", data);
+  }
+
+  async updateUserAPIKey(id: number, data: {
+    name?: string;
+    is_active?: boolean;
+    usage_limit?: number;
+    expires_at?: string;
+  }) {
+    return this.request<unknown>("PUT", `/user-api-keys/${id}`, data);
+  }
+
+  async deleteUserAPIKey(id: number) {
+    return this.request<unknown>("DELETE", `/user-api-keys/${id}`);
+  }
+
+  async addChannelToAPIKey(apiKeyId: number, channelId: number) {
+    return this.request<unknown>("POST", `/user-api-keys/${apiKeyId}/channels`, {
+      channel_id: channelId,
+    });
+  }
+
+  async removeChannelFromAPIKey(apiKeyId: number, channelId: number) {
+    return this.request<unknown>("DELETE", `/user-api-keys/${apiKeyId}/channels/${channelId}`);
+  }
+
+  async addModelToAPIKey(apiKeyId: number, modelId: number) {
+    return this.request<unknown>("POST", `/user-api-keys/${apiKeyId}/models`, {
+      model_id: modelId,
+    });
+  }
+
+  async removeModelFromAPIKey(apiKeyId: number, modelId: number) {
+    return this.request<unknown>("DELETE", `/user-api-keys/${apiKeyId}/models/${modelId}`);
   }
 }
 

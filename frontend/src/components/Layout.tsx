@@ -8,6 +8,7 @@ import {
   BarChart3,
   LogOut,
   Menu,
+  Key,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -16,6 +17,7 @@ const navItems = [
   { path: "/users", label: "Users", icon: Users, permission: "view:users" },
   { path: "/channels", label: "Channels", icon: Link2, permission: "view:channels" },
   { path: "/proxies", label: "Proxies", icon: Shield, permission: "view:proxies" },
+  { path: "/api-keys", label: "API Keys", icon: Key, permission: "view:dashboard" },
   { path: "/analytics", label: "Analytics", icon: BarChart3, permission: "view:analytics" },
 ];
 

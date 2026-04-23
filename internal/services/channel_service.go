@@ -30,13 +30,14 @@ func NewChannelService(
 	}
 }
 
-func (s *ChannelService) CreateChannel(name, channelType, description string) (*models.Channel, error) {
+func (s *ChannelService) CreateChannel(name, channelType, endpoint, description string) (*models.Channel, error) {
 	if s.channelRepo == nil || s.apiKeyRepo == nil || s.modelRepo == nil {
 		return nil, errors.New("channel service dependencies are not initialized")
 	}
 
 	name = strings.TrimSpace(name)
 	channelType = strings.ToLower(strings.TrimSpace(channelType))
+	endpoint = strings.TrimSpace(endpoint)
 	description = strings.TrimSpace(description)
 
 	if name == "" {
@@ -45,11 +46,17 @@ func (s *ChannelService) CreateChannel(name, channelType, description string) (*
 
 	validTypes := map[string]bool{
 		"openai":    true,
-		"anthropic": true,
+		"anthr0pic": true,
 		"cohere":    true,
+		"custom":    true,
 	}
 	if !validTypes[channelType] {
 		return nil, fmt.Errorf("invalid channel type: %s", channelType)
+	}
+
+	// Validate endpoint for custom type
+	if channelType == "custom" && endpoint == "" {
+		return nil, errors.New("endpoint is required for custom channel type")
 	}
 
 	if _, err := s.channelRepo.GetByName(name); err == nil {
@@ -61,6 +68,7 @@ func (s *ChannelService) CreateChannel(name, channelType, description string) (*
 	channel := &models.Channel{
 		Name:        name,
 		Type:        channelType,
+		Endpoint:    endpoint,
 		Description: description,
 		IsActive:    true,
 	}
@@ -83,6 +91,7 @@ func (s *ChannelService) UpdateChannel(channelID uint, updates map[string]any) (
 	allowedFields := map[string]bool{
 		"name":        true,
 		"description": true,
+		"endpoint":    true,
 		"is_active":   true,
 	}
 

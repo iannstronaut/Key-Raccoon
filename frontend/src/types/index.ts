@@ -11,10 +11,35 @@ export interface Channel {
   id: number;
   name: string;
   type: string;
+  endpoint?: string;
   description?: string;
   is_active: boolean;
   models?: string[];
   api_keys?: string[];
+}
+
+export interface Model {
+  id: number;
+  name: string;
+  display_name: string;
+  channel_id?: number;
+}
+
+export interface UserAPIKey {
+  id: number;
+  user_id: number;
+  name: string;
+  key: string;
+  is_active: boolean;
+  usage_limit: number;
+  usage_count: number;
+  expires_at?: string;
+  last_used_at?: string;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+  channels?: Channel[];
+  models?: Model[];
 }
 
 export interface Proxy {

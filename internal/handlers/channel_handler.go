@@ -24,6 +24,7 @@ func (h *ChannelHandler) CreateChannel(c *fiber.Ctx) error {
 	var req struct {
 		Name        string `json:"name"`
 		Type        string `json:"type"`
+		Endpoint    string `json:"endpoint"`
 		Description string `json:"description"`
 	}
 
@@ -31,7 +32,7 @@ func (h *ChannelHandler) CreateChannel(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 
-	channel, err := h.channelService.CreateChannel(req.Name, req.Type, req.Description)
+	channel, err := h.channelService.CreateChannel(req.Name, req.Type, req.Endpoint, req.Description)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -96,6 +97,7 @@ func (h *ChannelHandler) UpdateChannel(c *fiber.Ctx) error {
 	var req struct {
 		Name        *string `json:"name"`
 		Description *string `json:"description"`
+		Endpoint    *string `json:"endpoint"`
 		IsActive    *bool   `json:"is_active"`
 	}
 
@@ -109,6 +111,9 @@ func (h *ChannelHandler) UpdateChannel(c *fiber.Ctx) error {
 	}
 	if req.Description != nil {
 		updates["description"] = strings.TrimSpace(*req.Description)
+	}
+	if req.Endpoint != nil {
+		updates["endpoint"] = strings.TrimSpace(*req.Endpoint)
 	}
 	if req.IsActive != nil {
 		updates["is_active"] = *req.IsActive
@@ -354,6 +359,7 @@ func sanitizeChannel(channel *models.Channel) fiber.Map {
 		"id":          channel.ID,
 		"name":        channel.Name,
 		"type":        channel.Type,
+		"endpoint":    channel.Endpoint,
 		"is_active":   channel.IsActive,
 		"description": channel.Description,
 		"created_at":  channel.CreatedAt,

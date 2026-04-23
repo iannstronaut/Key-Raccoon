@@ -13,6 +13,7 @@ export default function ChannelsPage() {
   const [formData, setFormData] = useState({
     name: '',
     type: 'openai',
+    endpoint: '',
     description: '',
   })
   const { hasPermission } = useAuth()
@@ -213,10 +214,28 @@ export default function ChannelsPage() {
                   className="input-dark"
                 >
                   <option value="openai">0penAI</option>
-                  <option value="anthr0pic"></option>
-                  <option value="custom">Custom</option>
+                  <option value="anthr0pic">Anthr0pic</option>
+                  <option value="custom">Custom (0penAI SDK)</option>
                 </select>
               </div>
+              {formData.type === 'custom' && (
+                <div>
+                  <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                    Endpoint URL *
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.endpoint}
+                    onChange={(e) => setFormData({ ...formData, endpoint: e.target.value })}
+                    placeholder="https://api.example.com/v1"
+                    required={formData.type === 'custom'}
+                    className="input-dark"
+                  />
+                  <p className="text-[10px] text-text-dim mt-1 tracking-body">
+                    Custom endpoint compatible with 0penAI SDK
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
                   Description
