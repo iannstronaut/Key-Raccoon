@@ -245,7 +245,7 @@ func TestChatHandlerEmbeddings(t *testing.T) {
 	}
 }
 
-func setupChatHandler(t *testing.T) (*handlers.ChatHandler, *models.APIKey) {
+func setupChatHandler(t *testing.T) (*handlers.ChatHandler, *models.UserAPIKey) {
 	t.Helper()
 
 	dbPath := filepath.Join(t.TempDir(), "chat_handler.db")
@@ -258,7 +258,7 @@ func setupChatHandler(t *testing.T) (*handlers.ChatHandler, *models.APIKey) {
 		t.Fatalf("db.DB() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	if err := db.AutoMigrate(&models.User{}, &models.Channel{}, &models.APIKey{}, &models.ChannelAPIKey{}, &models.Model{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Channel{}, &models.UserAPIKey{}, &models.UserAPIKeyModel{}, &models.ChannelAPIKey{}, &models.Model{}); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
 	}
 
@@ -274,24 +274,24 @@ func setupChatHandler(t *testing.T) (*handlers.ChatHandler, *models.APIKey) {
 		t.Fatalf("userRepo.Create() error = %v", err)
 	}
 
-	apiKeyRepo := repositories.NewAPIKeyRepository(db)
-	apiKeyService := services.NewAPIKeyService(apiKeyRepo, userRepo)
-	apiKey, err := apiKeyService.CreateAPIKey(user.ID, "Chat Key", 10, 10)
+	userAPIKeyRepo := repositories.NewUserAPIKeyRepository(db)
+	channelRepo := repositories.NewChannelRepository(db)
+	modelRepo := repositories.NewModelRepository(db)
+	userAPIKeyService := services.NewUserAPIKeyService(userAPIKeyRepo, userRepo, channelRepo, modelRepo)
+	apiKey, err := userAPIKeyService.CreateAPIKey(user.ID, "Chat Key", 10, nil, []uint{}, []uint{})
 	if err != nil {
 		t.Fatalf("CreateAPIKey() error = %v", err)
 	}
 
-	channelRepo := repositories.NewChannelRepository(db)
 	channelAPIKeyRepo := repositories.NewChannelAPIKeyRepository(db)
-	modelRepo := repositories.NewModelRepository(db)
 	channelService := services.NewChannelService(channelRepo, channelAPIKeyRepo, modelRepo, userRepo)
 	proxyService := services.NewProxyService(repositories.NewProxyRepository(db))
 
-	handler := handlers.NewChatHandler(apiKeyService, channelService, proxyService)
+	handler := handlers.NewChatHandler(userAPIKeyService, channelService, proxyService)
 	return handler, apiKey
 }
 
-func setupChatHandlerWithChannel(t *testing.T) (*handlers.ChatHandler, *models.APIKey, *models.Channel) {
+func setupChatHandlerWithChannel(t *testing.T) (*handlers.ChatHandler, *models.UserAPIKey, *models.Channel) {
 	t.Helper()
 
 	handler, apiKey := setupChatHandler(t)
@@ -308,7 +308,7 @@ func setupChatHandlerWithChannel(t *testing.T) (*handlers.ChatHandler, *models.A
 		t.Fatalf("db.DB() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	if err := db.AutoMigrate(&models.User{}, &models.Channel{}, &models.APIKey{}, &models.ChannelAPIKey{}, &models.Model{}, &models.Proxy{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Channel{}, &models.UserAPIKey{}, &models.UserAPIKeyModel{}, &models.ChannelAPIKey{}, &models.Model{}, &models.Proxy{}); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
 	}
 
@@ -334,20 +334,21 @@ func setupChatHandlerWithChannel(t *testing.T) (*handlers.ChatHandler, *models.A
 		t.Fatalf("channelRepo.Create() error = %v", err)
 	}
 
-	apiKeyRepo := repositories.NewAPIKeyRepository(db)
-	apiKeyService := services.NewAPIKeyService(apiKeyRepo, userRepo)
-	apiKey, err = apiKeyService.CreateAPIKey(user.ID, "Chat Key 2", 10, 100)
+	userAPIKeyRepo := repositories.NewUserAPIKeyRepository(db)
+	modelRepo := repositories.NewModelRepository(db)
+	userAPIKeyService := services.NewUserAPIKeyService(userAPIKeyRepo, userRepo, channelRepo, modelRepo)
+	apiKey, err = userAPIKeyService.CreateAPIKey(user.ID, "Chat Key 2", 0, nil, []uint{channel.ID}, []uint{})
 	if err != nil {
 		t.Fatalf("CreateAPIKey() error = %v", err)
 	}
 
-	// Bind channel to API key
-	if err := apiKeyService.BindChannel(apiKey.ID, channel.ID); err != nil {
-		t.Fatalf("BindChannel() error = %v", err)
+	// Set token limit to 10 for testing
+	apiKey.TokenLimit = 10
+	if err := userAPIKeyRepo.Update(apiKey); err != nil {
+		t.Fatalf("Update TokenLimit error = %v", err)
 	}
 
 	channelAPIKeyRepo := repositories.NewChannelAPIKeyRepository(db)
-	modelRepo := repositories.NewModelRepository(db)
 	channelService := services.NewChannelService(channelRepo, channelAPIKeyRepo, modelRepo, userRepo)
 	proxyService := services.NewProxyService(repositories.NewProxyRepository(db))
 
@@ -356,11 +357,11 @@ func setupChatHandlerWithChannel(t *testing.T) (*handlers.ChatHandler, *models.A
 		t.Fatalf("AddAPIKey() error = %v", err)
 	}
 
-	handler = handlers.NewChatHandler(apiKeyService, channelService, proxyService)
+	handler = handlers.NewChatHandler(userAPIKeyService, channelService, proxyService)
 	return handler, apiKey, channel
 }
 
-func setupChatHandlerWithChannelAndModel(t *testing.T) (*handlers.ChatHandler, *models.APIKey, *models.Channel) {
+func setupChatHandlerWithChannelAndModel(t *testing.T) (*handlers.ChatHandler, *models.UserAPIKey, *models.Channel) {
 	t.Helper()
 
 	dbPath := filepath.Join(t.TempDir(), "chat_handler_model.db")
@@ -373,7 +374,7 @@ func setupChatHandlerWithChannelAndModel(t *testing.T) (*handlers.ChatHandler, *
 		t.Fatalf("db.DB() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	if err := db.AutoMigrate(&models.User{}, &models.Channel{}, &models.APIKey{}, &models.ChannelAPIKey{}, &models.Model{}, &models.Proxy{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Channel{}, &models.UserAPIKey{}, &models.UserAPIKeyModel{}, &models.ChannelAPIKey{}, &models.Model{}, &models.Proxy{}); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
 	}
 
@@ -399,19 +400,15 @@ func setupChatHandlerWithChannelAndModel(t *testing.T) (*handlers.ChatHandler, *
 		t.Fatalf("channelRepo.Create() error = %v", err)
 	}
 
-	apiKeyRepo := repositories.NewAPIKeyRepository(db)
-	apiKeyService := services.NewAPIKeyService(apiKeyRepo, userRepo)
-	apiKey, err := apiKeyService.CreateAPIKey(user.ID, "Chat Key 3", 1000, 100)
+	userAPIKeyRepo := repositories.NewUserAPIKeyRepository(db)
+	modelRepo := repositories.NewModelRepository(db)
+	userAPIKeyService := services.NewUserAPIKeyService(userAPIKeyRepo, userRepo, channelRepo, modelRepo)
+	apiKey, err := userAPIKeyService.CreateAPIKey(user.ID, "Chat Key 3", 1000, nil, []uint{channel.ID}, []uint{})
 	if err != nil {
 		t.Fatalf("CreateAPIKey() error = %v", err)
 	}
 
-	if err := apiKeyService.BindChannel(apiKey.ID, channel.ID); err != nil {
-		t.Fatalf("BindChannel() error = %v", err)
-	}
-
 	channelAPIKeyRepo := repositories.NewChannelAPIKeyRepository(db)
-	modelRepo := repositories.NewModelRepository(db)
 	channelService := services.NewChannelService(channelRepo, channelAPIKeyRepo, modelRepo, userRepo)
 	proxyService := services.NewProxyService(repositories.NewProxyRepository(db))
 
@@ -423,6 +420,6 @@ func setupChatHandlerWithChannelAndModel(t *testing.T) (*handlers.ChatHandler, *
 		t.Fatalf("AddModel() error = %v", err)
 	}
 
-	handler := handlers.NewChatHandler(apiKeyService, channelService, proxyService)
+	handler := handlers.NewChatHandler(userAPIKeyService, channelService, proxyService)
 	return handler, apiKey, channel
 }

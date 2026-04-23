@@ -55,7 +55,7 @@ func openTestDB(t *testing.T) *gorm.DB {
 		&models.Channel{},
 		&models.ChannelAPIKey{},
 		&models.Model{},
-		&models.APIKey{},
+		&models.UserAPIKey{},
 		&models.Proxy{},
 	); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)

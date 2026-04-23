@@ -24,6 +24,7 @@ func (h *ChannelHandler) CreateChannel(c *fiber.Ctx) error {
 	var req struct {
 		Name        string `json:"name"`
 		Type        string `json:"type"`
+		Endpoint    string `json:"endpoint"`
 		Description string `json:"description"`
 	}
 
@@ -31,7 +32,7 @@ func (h *ChannelHandler) CreateChannel(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 
-	channel, err := h.channelService.CreateChannel(req.Name, req.Type, req.Description)
+	channel, err := h.channelService.CreateChannel(req.Name, req.Type, req.Endpoint, req.Description)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -96,6 +97,7 @@ func (h *ChannelHandler) UpdateChannel(c *fiber.Ctx) error {
 	var req struct {
 		Name        *string `json:"name"`
 		Description *string `json:"description"`
+		Endpoint    *string `json:"endpoint"`
 		IsActive    *bool   `json:"is_active"`
 	}
 
@@ -109,6 +111,9 @@ func (h *ChannelHandler) UpdateChannel(c *fiber.Ctx) error {
 	}
 	if req.Description != nil {
 		updates["description"] = strings.TrimSpace(*req.Description)
+	}
+	if req.Endpoint != nil {
+		updates["endpoint"] = strings.TrimSpace(*req.Endpoint)
 	}
 	if req.IsActive != nil {
 		updates["is_active"] = *req.IsActive
@@ -144,7 +149,22 @@ func (h *ChannelHandler) AddAPIKey(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid channel id"})
 	}
 
-	apiKey, err := h.channelService.AddAPIKey(channelID)
+	var req struct {
+		APIKey string `json:"api_key"`
+	}
+
+	// Try to parse body, but it's optional
+	_ = c.BodyParser(&req)
+
+	var apiKey *models.ChannelAPIKey
+	if req.APIKey != "" {
+		// Add with specific value
+		apiKey, err = h.channelService.AddAPIKeyWithValue(channelID, req.APIKey)
+	} else {
+		// Auto-generate
+		apiKey, err = h.channelService.AddAPIKey(channelID)
+	}
+
 	if err != nil {
 		return channelStatusFromError(c, err)
 	}
@@ -167,6 +187,29 @@ func (h *ChannelHandler) GetChannelAPIKeys(c *fiber.Ctx) error {
 		"api_keys": apiKeys,
 		"total":    len(apiKeys),
 	})
+}
+
+func (h *ChannelHandler) DeleteAPIKey(c *fiber.Ctx) error {
+	channelID, err := parseChannelID(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid channel id"})
+	}
+
+	keyID, err := strconv.ParseUint(c.Params("keyID"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid api key id"})
+	}
+
+	// Verify channel exists first
+	if _, err := h.channelService.GetChannel(channelID); err != nil {
+		return channelStatusFromError(c, err)
+	}
+
+	if err := h.channelService.RemoveAPIKey(uint(keyID)); err != nil {
+		return channelStatusFromError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "api key deleted successfully"})
 }
 
 func (h *ChannelHandler) RotateAPIKey(c *fiber.Ctx) error {
@@ -226,6 +269,29 @@ func (h *ChannelHandler) GetChannelModels(c *fiber.Ctx) error {
 		"models": modelsList,
 		"total":  len(modelsList),
 	})
+}
+
+func (h *ChannelHandler) DeleteModel(c *fiber.Ctx) error {
+	channelID, err := parseChannelID(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid channel id"})
+	}
+
+	modelID, err := strconv.ParseUint(c.Params("modelID"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid model id"})
+	}
+
+	// Verify channel exists first
+	if _, err := h.channelService.GetChannel(channelID); err != nil {
+		return channelStatusFromError(c, err)
+	}
+
+	if err := h.channelService.DeleteModel(uint(modelID)); err != nil {
+		return channelStatusFromError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "model deleted successfully"})
 }
 
 func (h *ChannelHandler) BindUserToChannel(c *fiber.Ctx) error {
@@ -308,6 +374,7 @@ func sanitizeChannel(channel *models.Channel) fiber.Map {
 		"id":          channel.ID,
 		"name":        channel.Name,
 		"type":        channel.Type,
+		"endpoint":    channel.Endpoint,
 		"is_active":   channel.IsActive,
 		"description": channel.Description,
 		"created_at":  channel.CreatedAt,

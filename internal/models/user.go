@@ -22,6 +22,6 @@ type User struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 
-	Channels []Channel `gorm:"many2many:user_channels;" json:"channels,omitempty"`
-	APIKeys  []APIKey  `json:"api_keys,omitempty"`
+	Channels    []Channel    `gorm:"many2many:user_channels;" json:"channels,omitempty"`
+	UserAPIKeys []UserAPIKey `json:"user_api_keys,omitempty"`
 }
