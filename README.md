@@ -1,6 +1,6 @@
 # KeyRaccoon
 
-![KeyRaccoon Banner](public/keyraccoon_banner.png)
+![KeyRaccoon Banner](frontend/public/keyraccoon_banner.png)
 
 Production-ready OpenAI-compatible API proxy dengan user management, channel routing, dan proxy management.
 
@@ -46,13 +46,23 @@ cp config/.env.example config/.env.local
 docker compose up -d
 ```
 
-4. Run server
+4. Run backend server
 
 ```bash
 go run ./cmd/server
 ```
 
-5. Akses dashboard di `http://localhost:3000/dashboard`
+5. Run frontend (di terminal terpisah)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+6. Akses dashboard di `http://localhost:5173`
+
+Backend API berjalan di `http://localhost:3000` (atau port yang dikonfigurasi).
 
 Default admin credentials:
 - Email: `admin@keyraccoon.com`
@@ -104,8 +114,10 @@ KeyRaccoon/
 │   └── cli/             # CLI implementation
 ├── pkg/
 │   └── logger/          # Structured logging
-├── public/
-│   └── dashboard/       # Admin dashboard (SPA)
+├── frontend/            # React + Vite + TypeScript + Tailwind v3
+│   ├── src/             # Frontend source code
+│   ├── public/          # Static assets
+│   └── package.json
 ├── tests/               # Load & integration tests
 ├── config/              # Configuration files
 ├── docker-compose.yml

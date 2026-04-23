@@ -67,7 +67,8 @@ func main() {
 	routes.SetupProxyRoutes(api, config.GetDB())
 	routes.SetupAPIV1Routes(api, config.GetDB())
 
-	routes.SetupDashboardRoutes(app)
+	// Note: Dashboard/frontend routes are served by a separate React+Vite service.
+	// The Go backend only serves API endpoints. See /frontend for the UI.
 
 	proxyRepo := repositories.NewProxyRepository(config.GetDB())
 	proxyService := services.NewProxyService(proxyRepo)

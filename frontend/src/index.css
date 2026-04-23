@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #07080a;
+    color: #f9f9f9;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: 0.2px;
+  }
+
+  * {
+    @apply border-border-subtle;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-100 border border-white/[0.06] rounded-xl;
+  }
+
+  .card-elevated {
+    @apply bg-surface-100 rounded-xl;
+    box-shadow: rgb(27, 28, 30) 0px 0px 0px 1px, rgb(7, 8, 10) 0px 0px 0px 1px inset;
+  }
+
+  .btn-primary {
+    @apply px-5 py-2.5 text-[16px] font-semibold tracking-button text-button-fg bg-white/[0.815] rounded-pill transition-all duration-300 hover:bg-white;
+  }
+
+  .btn-secondary {
+    @apply px-5 py-2.5 text-[16px] font-semibold tracking-button text-white bg-transparent border border-white/10 rounded-md transition-opacity duration-300 hover:opacity-60;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 text-[16px] font-medium tracking-button text-text-dim rounded-pill transition-opacity duration-300 hover:opacity-60 hover:text-white;
+    box-shadow: rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset;
+  }
+
+  .input-dark {
+    @apply w-full px-3.5 py-3 text-[16px] font-medium tracking-body text-text-primary bg-bg-deep border border-white/[0.08] rounded-lg outline-none transition-all duration-200 placeholder:text-text-dim placeholder:font-normal;
+  }
+
+  .input-dark:focus {
+    @apply border-raycast-blue;
+    box-shadow: 0 0 0 3px hsla(202, 100%, 67%, 0.15);
+  }
+
+  .nav-link {
+    @apply text-[16px] font-medium tracking-body text-text-muted transition-colors duration-200 hover:text-white;
+  }
+
+  .nav-link.active {
+    @apply text-white;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 text-[14px] font-medium bg-surface-card text-white rounded-md;
+  }
+
+  .badge-success {
+    @apply bg-raycast-green/15 text-raycast-green;
+  }
+
+  .badge-danger {
+    @apply bg-raycast-red/15 text-raycast-red;
+  }
+
+  .badge-warning {
+    @apply bg-raycast-yellow/15 text-raycast-yellow;
+  }
+}
