@@ -72,31 +72,31 @@ export default function DashboardPage() {
   const isHealthy = health?.database_ok && health?.redis_ok
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h2 className="text-[24px] font-medium text-white tracking-body">
+        <h2 className="text-[20px] font-medium text-white tracking-body">
           Dashboard
         </h2>
-        <p className="text-[16px] text-text-muted mt-1 tracking-body">
+        <p className="text-[14px] text-text-muted mt-0.5 tracking-body">
           Overview of your KeyRaccoon instance
         </p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((card) => (
-          <div key={card.label} className="card-elevated p-6">
+          <div key={card.label} className="card-elevated p-4 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[14px] font-medium text-text-muted tracking-body">
+                <p className="text-[12px] font-medium text-text-muted tracking-body">
                   {card.label}
                 </p>
-                <p className="text-[32px] font-semibold text-white mt-2 tracking-tight">
+                <p className="text-[24px] font-semibold text-white mt-1.5 tracking-tight">
                   {loading ? '—' : card.value}
                 </p>
               </div>
-              <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
-                <card.icon className="w-5 h-5 text-text-muted" />
+              <div className="w-8 h-8 rounded-lg bg-white/5 backdrop-blur-sm flex items-center justify-center border border-white/[0.05]">
+                <card.icon className="w-4 h-4 text-text-muted" />
               </div>
             </div>
           </div>
@@ -104,9 +104,9 @@ export default function DashboardPage() {
       </div>
 
       {/* System Health */}
-      <div className="card-elevated p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-[20px] font-medium text-white tracking-body">
+      <div className="card-elevated p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[16px] font-medium text-white tracking-body">
             System Health
           </h3>
           <span
@@ -116,16 +116,16 @@ export default function DashboardPage() {
           </span>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-white/[0.02] rounded-lg">
-            <div className="flex items-center gap-3">
-              <Database className="w-5 h-5 text-text-muted" />
-              <span className="text-[16px] font-medium text-text-secondary tracking-body">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between p-3 glass-subtle rounded-lg hover:bg-white/[0.04] transition-all">
+            <div className="flex items-center gap-2.5">
+              <Database className="w-4 h-4 text-text-muted" />
+              <span className="text-[14px] font-medium text-text-secondary tracking-body">
                 Database
               </span>
             </div>
             <span
-              className={`text-[14px] font-medium tracking-body ${
+              className={`text-[12px] font-medium tracking-body ${
                 health?.database_ok ? 'text-raycast-green' : 'text-raycast-red'
               }`}
             >
@@ -137,15 +137,15 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-white/[0.02] rounded-lg">
-            <div className="flex items-center gap-3">
-              <Server className="w-5 h-5 text-text-muted" />
-              <span className="text-[16px] font-medium text-text-secondary tracking-body">
+          <div className="flex items-center justify-between p-3 glass-subtle rounded-lg hover:bg-white/[0.04] transition-all">
+            <div className="flex items-center gap-2.5">
+              <Server className="w-4 h-4 text-text-muted" />
+              <span className="text-[14px] font-medium text-text-secondary tracking-body">
                 Redis
               </span>
             </div>
             <span
-              className={`text-[14px] font-medium tracking-body ${
+              className={`text-[12px] font-medium tracking-body ${
                 health?.redis_ok ? 'text-raycast-green' : 'text-raycast-red'
               }`}
             >

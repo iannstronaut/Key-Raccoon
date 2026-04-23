@@ -169,6 +169,29 @@ func (h *ChannelHandler) GetChannelAPIKeys(c *fiber.Ctx) error {
 	})
 }
 
+func (h *ChannelHandler) DeleteAPIKey(c *fiber.Ctx) error {
+	channelID, err := parseChannelID(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid channel id"})
+	}
+
+	keyID, err := strconv.ParseUint(c.Params("keyID"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid api key id"})
+	}
+
+	// Verify channel exists first
+	if _, err := h.channelService.GetChannel(channelID); err != nil {
+		return channelStatusFromError(c, err)
+	}
+
+	if err := h.channelService.RemoveAPIKey(uint(keyID)); err != nil {
+		return channelStatusFromError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "api key deleted successfully"})
+}
+
 func (h *ChannelHandler) RotateAPIKey(c *fiber.Ctx) error {
 	channelID, err := parseChannelID(c.Params("id"))
 	if err != nil {
@@ -226,6 +249,29 @@ func (h *ChannelHandler) GetChannelModels(c *fiber.Ctx) error {
 		"models": modelsList,
 		"total":  len(modelsList),
 	})
+}
+
+func (h *ChannelHandler) DeleteModel(c *fiber.Ctx) error {
+	channelID, err := parseChannelID(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid channel id"})
+	}
+
+	modelID, err := strconv.ParseUint(c.Params("modelID"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid model id"})
+	}
+
+	// Verify channel exists first
+	if _, err := h.channelService.GetChannel(channelID); err != nil {
+		return channelStatusFromError(c, err)
+	}
+
+	if err := h.channelService.DeleteModel(uint(modelID)); err != nil {
+		return channelStatusFromError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"message": "model deleted successfully"})
 }
 
 func (h *ChannelHandler) BindUserToChannel(c *fiber.Ctx) error {

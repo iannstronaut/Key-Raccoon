@@ -18,58 +18,166 @@
 }
 
 @layer components {
+  /* Liquid Glass Base */
+  .glass {
+    background: rgba(16, 17, 17, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-strong {
+    background: rgba(16, 17, 17, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .glass-subtle {
+    background: rgba(16, 17, 17, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  /* Cards with Liquid Glass */
   .card {
-    @apply bg-surface-100 border border-white/[0.06] rounded-xl;
+    @apply glass rounded-lg;
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.3),
+      0 2px 4px -1px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
   }
 
   .card-elevated {
-    @apply bg-surface-100 rounded-xl;
-    box-shadow: rgb(27, 28, 30) 0px 0px 0px 1px, rgb(7, 8, 10) 0px 0px 0px 1px inset;
+    @apply glass-strong rounded-lg;
+    box-shadow: 
+      rgb(27, 28, 30) 0px 0px 0px 1px,
+      rgb(7, 8, 10) 0px 0px 0px 1px inset,
+      0 8px 16px -4px rgba(0, 0, 0, 0.4),
+      0 4px 8px -2px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
   }
 
+  /* Buttons with Glass Effect */
   .btn-primary {
-    @apply px-5 py-2.5 text-[16px] font-semibold tracking-button text-button-fg bg-white/[0.815] rounded-pill transition-all duration-300 hover:bg-white;
+    @apply px-4 py-2 text-[14px] font-semibold tracking-button text-button-fg rounded-pill transition-all duration-300;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.85) 100%);
+    box-shadow: 
+      0 2px 8px rgba(255, 255, 255, 0.15),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.95) 100%);
+    box-shadow: 
+      0 4px 12px rgba(255, 255, 255, 0.2),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.4);
+    transform: translateY(-1px);
   }
 
   .btn-secondary {
-    @apply px-5 py-2.5 text-[16px] font-semibold tracking-button text-white bg-transparent border border-white/10 rounded-md transition-opacity duration-300 hover:opacity-60;
+    @apply px-4 py-2 text-[14px] font-semibold tracking-button text-white rounded-md transition-all duration-300;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 
+      0 2px 8px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
   }
 
   .btn-ghost {
-    @apply px-4 py-2 text-[16px] font-medium tracking-button text-text-dim rounded-pill transition-opacity duration-300 hover:opacity-60 hover:text-white;
-    box-shadow: rgba(255, 255, 255, 0.1) 0px 1px 0px 0px inset;
+    @apply px-3 py-1.5 text-[14px] font-medium tracking-button text-text-dim rounded-pill transition-all duration-300;
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(4px);
+    box-shadow: 
+      rgba(255, 255, 255, 0.05) 0px 1px 0px 0px inset,
+      0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
+  .btn-ghost:hover {
+    @apply text-white;
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 
+      rgba(255, 255, 255, 0.08) 0px 1px 0px 0px inset,
+      0 2px 4px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Input with Glass Effect */
   .input-dark {
-    @apply w-full px-3.5 py-3 text-[16px] font-medium tracking-body text-text-primary bg-bg-deep border border-white/[0.08] rounded-lg outline-none transition-all duration-200 placeholder:text-text-dim placeholder:font-normal;
+    @apply w-full px-3 py-2 text-[14px] font-medium tracking-body text-text-primary rounded-lg outline-none transition-all duration-200 placeholder:text-text-dim placeholder:font-normal;
+    background: rgba(7, 8, 10, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 
   .input-dark:focus {
     @apply border-raycast-blue;
-    box-shadow: 0 0 0 3px hsla(202, 100%, 67%, 0.15);
+    background: rgba(7, 8, 10, 0.7);
+    box-shadow: 
+      0 0 0 3px hsla(202, 100%, 67%, 0.15),
+      inset 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 
+  /* Navigation Links */
   .nav-link {
-    @apply text-[16px] font-medium tracking-body text-text-muted transition-colors duration-200 hover:text-white;
+    @apply text-[14px] font-medium tracking-body text-text-muted transition-all duration-200 hover:text-white;
   }
 
   .nav-link.active {
     @apply text-white;
   }
 
+  /* Badges with Glass */
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 text-[14px] font-medium bg-surface-card text-white rounded-md;
+    @apply inline-flex items-center px-2 py-0.5 text-[12px] font-medium text-white rounded-md;
+    background: rgba(27, 28, 30, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
   }
 
   .badge-success {
-    @apply bg-raycast-green/15 text-raycast-green;
+    background: rgba(95, 201, 146, 0.15);
+    backdrop-filter: blur(8px);
+    border-color: rgba(95, 201, 146, 0.2);
+    @apply text-raycast-green;
+    box-shadow: 
+      inset 0 1px 0 0 rgba(95, 201, 146, 0.1),
+      0 0 8px rgba(95, 201, 146, 0.1);
   }
 
   .badge-danger {
-    @apply bg-raycast-red/15 text-raycast-red;
+    background: rgba(255, 99, 99, 0.15);
+    backdrop-filter: blur(8px);
+    border-color: rgba(255, 99, 99, 0.2);
+    @apply text-raycast-red;
+    box-shadow: 
+      inset 0 1px 0 0 rgba(255, 99, 99, 0.1),
+      0 0 8px rgba(255, 99, 99, 0.1);
   }
 
   .badge-warning {
-    @apply bg-raycast-yellow/15 text-raycast-yellow;
+    background: rgba(255, 188, 51, 0.15);
+    backdrop-filter: blur(8px);
+    border-color: rgba(255, 188, 51, 0.2);
+    @apply text-raycast-yellow;
+    box-shadow: 
+      inset 0 1px 0 0 rgba(255, 188, 51, 0.1),
+      0 0 8px rgba(255, 188, 51, 0.1);
+  }
+
+  /* Glass Overlay */
+  .glass-overlay {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 }

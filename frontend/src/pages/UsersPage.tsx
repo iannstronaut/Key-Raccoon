@@ -58,13 +58,13 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-[24px] font-medium text-white tracking-body">
+          <h2 className="text-[20px] font-medium text-white tracking-body">
             Users
           </h2>
-          <p className="text-[16px] text-text-muted mt-1 tracking-body">
+          <p className="text-[14px] text-text-muted mt-0.5 tracking-body">
             Manage user accounts
           </p>
         </div>
@@ -79,22 +79,22 @@ export default function UsersPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-border-medium">
-                <th className="text-left px-6 py-4 text-[14px] font-medium text-text-muted tracking-body">
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
                   Email
                 </th>
-                <th className="text-left px-6 py-4 text-[14px] font-medium text-text-muted tracking-body">
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
                   Name
                 </th>
-                <th className="text-left px-6 py-4 text-[14px] font-medium text-text-muted tracking-body">
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
                   Role
                 </th>
-                <th className="text-left px-6 py-4 text-[14px] font-medium text-text-muted tracking-body">
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
                   Status
                 </th>
-                <th className="text-left px-6 py-4 text-[14px] font-medium text-text-muted tracking-body">
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
                   Last Login
                 </th>
-                <th className="text-right px-6 py-4 text-[14px] font-medium text-text-muted tracking-body">
+                <th className="text-right px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
                   Actions
                 </th>
               </tr>
@@ -102,46 +102,46 @@ export default function UsersPage() {
             <tbody className="divide-y divide-border-medium">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-text-muted tracking-body">
+                  <td colSpan={6} className="px-4 py-6 text-center text-text-muted tracking-body text-[14px]">
                     Loading...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-text-muted tracking-body">
+                  <td colSpan={6} className="px-4 py-6 text-center text-text-muted tracking-body text-[14px]">
                     No users found
                   </td>
                 </tr>
               ) : (
                 users.map((user) => (
                   <tr key={user.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4 text-[16px] text-text-secondary tracking-body">
+                    <td className="px-4 py-3 text-[14px] text-text-secondary tracking-body">
                       {user.email}
                     </td>
-                    <td className="px-6 py-4 text-[16px] text-text-secondary tracking-body">
+                    <td className="px-4 py-3 text-[14px] text-text-secondary tracking-body">
                       {user.name || '—'}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <span className="badge">{user.role}</span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <span className={`badge ${user.is_active ? 'badge-success' : 'badge-danger'}`}>
                         {user.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-[16px] text-text-muted tracking-body">
+                    <td className="px-4 py-3 text-[14px] text-text-muted tracking-body">
                       {user.last_login
                         ? new Date(user.last_login).toLocaleString()
                         : 'Never'}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button className="p-2 text-text-muted hover:text-white transition-colors rounded-lg hover:bg-white/5">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button className="p-1.5 text-text-muted hover:text-white transition-colors rounded-lg hover:bg-white/5">
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.id)}
-                          className="p-2 text-text-muted hover:text-raycast-red transition-colors rounded-lg hover:bg-white/5"
+                          className="p-1.5 text-text-muted hover:text-raycast-red transition-colors rounded-lg hover:bg-white/5"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -157,20 +157,20 @@ export default function UsersPage() {
 
       {/* Create User Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="card w-full max-w-md p-6 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay">
+          <div className="glass-strong w-full max-w-md p-5 relative rounded-xl shadow-2xl border border-white/[0.1]">
             <button
               onClick={() => setModalOpen(false)}
-              className="absolute top-4 right-4 p-1 text-text-muted hover:text-white transition-colors"
+              className="absolute top-3 right-3 p-1.5 text-text-muted hover:text-white transition-all rounded-lg hover:bg-white/[0.1]"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
-            <h3 className="text-[20px] font-medium text-white tracking-body mb-6">
+            <h3 className="text-[18px] font-medium text-white tracking-body mb-4">
               Create User
             </h3>
-            <form onSubmit={handleCreateUser} className="space-y-4">
+            <form onSubmit={handleCreateUser} className="space-y-3">
               <div>
-                <label className="block text-[14px] font-medium text-text-tertiary mb-2 tracking-body">
+                <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
                   Email
                 </label>
                 <input
@@ -183,7 +183,7 @@ export default function UsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-[14px] font-medium text-text-tertiary mb-2 tracking-body">
+                <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
                   Full Name
                 </label>
                 <input
@@ -196,7 +196,7 @@ export default function UsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-[14px] font-medium text-text-tertiary mb-2 tracking-body">
+                <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
                   Password
                 </label>
                 <input
@@ -209,7 +209,7 @@ export default function UsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-[14px] font-medium text-text-tertiary mb-2 tracking-body">
+                <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
                   Role
                 </label>
                 <select
@@ -221,7 +221,7 @@ export default function UsersPage() {
                   <option value="admin">Admin</option>
                 </select>
               </div>
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}

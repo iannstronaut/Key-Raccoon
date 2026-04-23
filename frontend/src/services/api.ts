@@ -1,7 +1,13 @@
-const API_BASE = "http://localhost:3000/api";
+import config from '../config';
 
 class APIService {
   private token: string | null = localStorage.getItem("auth_token");
+  private apiBase: string;
+
+  constructor() {
+    // Use config API base URL + /api path
+    this.apiBase = config.apiBaseUrl ? `${config.apiBaseUrl}/api` : '/api';
+  }
 
   setToken(token: string) {
     this.token = token;
@@ -26,7 +32,7 @@ class APIService {
     endpoint: string,
     data?: unknown,
   ): Promise<T | null> {
-    const url = `${API_BASE}${endpoint}`;
+    const url = `${this.apiBase}${endpoint}`;
     const options: RequestInit = {
       method,
       headers: {
@@ -107,6 +113,10 @@ class APIService {
     );
   }
 
+  async getChannel(id: number) {
+    return this.request<unknown>("GET", `/channels/${id}`);
+  }
+
   async createChannel(channel: {
     name: string;
     type: string;
@@ -117,6 +127,39 @@ class APIService {
 
   async deleteChannel(id: number) {
     return this.request<unknown>("DELETE", `/channels/${id}`);
+  }
+
+  // Channel API Keys
+  async addChannelAPIKey(channelId: number, apiKey: string) {
+    return this.request<unknown>("POST", `/channels/${channelId}/api-keys`, {
+      api_key: apiKey,
+    });
+  }
+
+  async getChannelAPIKeys(channelId: number) {
+    return this.request<unknown>("GET", `/channels/${channelId}/api-keys`);
+  }
+
+  async deleteChannelAPIKey(channelId: number, keyId: number) {
+    return this.request<unknown>("DELETE", `/channels/${channelId}/api-keys/${keyId}`);
+  }
+
+  // Channel Models
+  async addChannelModel(channelId: number, model: {
+    name: string;
+    display_name?: string;
+    token_price?: number;
+    system_prompt?: string;
+  }) {
+    return this.request<unknown>("POST", `/channels/${channelId}/models`, model);
+  }
+
+  async getChannelModels(channelId: number) {
+    return this.request<unknown>("GET", `/channels/${channelId}/models`);
+  }
+
+  async deleteChannelModel(channelId: number, modelId: number) {
+    return this.request<unknown>("DELETE", `/channels/${channelId}/models/${modelId}`);
   }
 
   // Proxies
@@ -142,7 +185,8 @@ class APIService {
 
   // Health
   async getHealth() {
-    return fetch(`http://localhost:3000/health`, {
+    const healthUrl = config.apiBaseUrl ? `${config.apiBaseUrl}/health` : '/health';
+    return fetch(healthUrl, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
