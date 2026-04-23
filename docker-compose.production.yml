@@ -6,42 +6,54 @@ services:
   # ============================================
   postgres:
     image: postgres:15-alpine
-    container_name: keyraccoon_postgres
+    container_name: keyraccoon_postgres_prod
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: keyraccoon
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-CHANGE_THIS_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-keyraccoon}
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./backups:/backups
     networks:
       - keyraccoon-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================
   # Cache - Redis
   # ============================================
   redis:
     image: redis:7-alpine
-    container_name: keyraccoon_redis
+    container_name: keyraccoon_redis_prod
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASS:-CHANGE_THIS_PASSWORD}
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - redis_prod_data:/data
     networks:
       - keyraccoon-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "--pass", "${REDIS_PASS:-CHANGE_THIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================
   # Backend API - Go/Fiber
@@ -50,37 +62,37 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: keyraccoon_backend
+    container_name: keyraccoon_backend_prod
     environment:
       # Server Configuration
       SERVER_PORT: 3000
       SERVER_HOST: 0.0.0.0
-      ENVIRONMENT: development
+      ENVIRONMENT: production
       
       # Database Configuration
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: password
-      DB_NAME: keyraccoon
-      DB_SSLMODE: disable
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-CHANGE_THIS_PASSWORD}
+      DB_NAME: ${DB_NAME:-keyraccoon}
+      DB_SSLMODE: require
       
       # Redis Configuration
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASS: ""
+      REDIS_PASS: ${REDIS_PASS:-CHANGE_THIS_PASSWORD}
       REDIS_DB: 0
       
       # JWT Configuration
-      JWT_SECRET: your-secret-key-change-in-production
+      JWT_SECRET: ${JWT_SECRET:-CHANGE_THIS_SECRET}
       JWT_EXPIRE: 60
       
       # Admin Configuration
-      ADMIN_EMAIL: admin@keyraccoon.com
-      ADMIN_PASSWORD: AdminPassword123
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@keyraccoon.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-CHANGE_THIS_PASSWORD}
       
       # CORS Configuration
-      CORS_ORIGIN: "*"
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://yourdomain.com}
     ports:
       - "3000:3000"
     depends_on:
@@ -96,7 +108,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-    restart: unless-stopped
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================
   # Frontend - React/Vite with Nginx
@@ -105,23 +122,31 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    container_name: keyraccoon_frontend
-    environment:
-      # API endpoint for frontend
-      VITE_API_BASE_URL: http://localhost:3000
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://api.yourdomain.com}
+    container_name: keyraccoon_frontend_prod
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
       - backend
     networks:
       - keyraccoon-network
+    volumes:
+      # Mount SSL certificates if using HTTPS
+      - ./ssl:/etc/nginx/ssl:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 5s
-    restart: unless-stopped
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 # ============================================
 # Networks
@@ -134,7 +159,7 @@ networks:
 # Volumes
 # ============================================
 volumes:
-  postgres_data:
+  postgres_prod_data:
     driver: local
-  redis_data:
+  redis_prod_data:
     driver: local

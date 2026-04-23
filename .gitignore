@@ -1,4 +1,35 @@
 # ==============================================================================
+# Docker
+# ==============================================================================
+# Docker volumes and data
+postgres_data/
+redis_data/
+postgres_dev_data/
+redis_dev_data/
+postgres_prod_data/
+redis_prod_data/
+
+# Docker build cache
+.docker/
+
+# SSL certificates
+ssl/
+*.pem
+*.key
+*.cert
+*.crt
+
+# Backups
+backups/
+*.sql
+*.rdb
+*.tar.gz
+
+# Air (hot reload) temporary files
+tmp/
+build-errors.log
+
+# ==============================================================================
 # Go
 # ==============================================================================
 # Hasil build binary (sesuaikan dengan nama aplikasi Anda nantinya)
