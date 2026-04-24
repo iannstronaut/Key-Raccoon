@@ -1,0 +1,531 @@
+import { useState, useEffect } from 'react'
+import { Plus, Trash2, X, Copy, Eye, EyeOff, Key } from 'lucide-react'
+import { api } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
+import type { UserAPIKey, User, Channel, Model } from '../types'
+
+export default function UserAPIKeysPage() {
+  const [apiKeys, setApiKeys] = useState<UserAPIKey[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [channels, setChannels] = useState<Channel[]>([])
+  const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [showKey, setShowKey] = useState<{ [key: number]: boolean }>({})
+  const [formData, setFormData] = useState({
+    user_id: 0,
+    name: '',
+    usage_limit: 0,
+    token_limit: 0,
+    expires_at: '',
+    channel_ids: [] as number[],
+    model_ids: [] as number[],
+  })
+  const [selectedChannelModels, setSelectedChannelModels] = useState<Model[]>([])
+  const [loadingModels, setLoadingModels] = useState(false)
+  const [newKeyValue, setNewKeyValue] = useState<string | null>(null)
+  const { hasPermission, user } = useAuth()
+  const canEdit = hasPermission('edit:users')
+  const isAdmin = hasPermission('view:users')
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  async function loadData() {
+    setLoading(true)
+    try {
+      const [apiKeysRes, usersRes, channelsRes] = await Promise.all([
+        isAdmin ? api.getUserAPIKeys() : api.getUserAPIKeysByUser(user?.id || 0),
+        isAdmin ? api.getUsers() : Promise.resolve({ users: [] }),
+        isAdmin ? api.getChannels() : api.getMyChannels(),
+      ])
+
+      const apiKeysData = apiKeysRes as { api_keys?: UserAPIKey[] }
+      const usersData = usersRes as { users?: User[] }
+      const channelsData = channelsRes as { channels?: Channel[] }
+
+      setApiKeys(apiKeysData?.api_keys || [])
+      setUsers(usersData?.users || [])
+      setChannels(channelsData?.channels || [])
+    } catch (err) {
+      console.error('Failed to load data:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadModelsForSelectedChannels(channelIds: number[]) {
+    if (channelIds.length === 0) {
+      setSelectedChannelModels([])
+      return
+    }
+
+    setLoadingModels(true)
+    try {
+      const models: Model[] = []
+
+      if (isAdmin) {
+        for (const channelId of channelIds) {
+          try {
+            const modelsRes = await api.getChannelModels(channelId)
+            const modelsData = modelsRes as { models?: Model[] }
+            if (modelsData?.models) {
+              models.push(...modelsData.models)
+            }
+          } catch (err) {
+            console.error(`Failed to load models for channel ${channelId}:`, err)
+          }
+        }
+      } else {
+        // For regular users, models are already included in my-channels response
+        for (const channelId of channelIds) {
+          const ch = channels.find(c => c.id === channelId)
+          if (ch?.models) {
+            models.push(...(ch.models as Model[]))
+          }
+        }
+      }
+
+      setSelectedChannelModels(models)
+    } catch (err) {
+      console.error('Failed to load models:', err)
+    } finally {
+      setLoadingModels(false)
+    }
+  }
+
+  function handleChannelToggle(channelId: number) {
+    const newChannelIds = formData.channel_ids.includes(channelId)
+      ? formData.channel_ids.filter(id => id !== channelId)
+      : [...formData.channel_ids, channelId]
+    setFormData({ ...formData, channel_ids: newChannelIds, model_ids: [] })
+    loadModelsForSelectedChannels(newChannelIds)
+  }
+
+  async function handleCreateAPIKey(e: React.FormEvent) {
+    e.preventDefault()
+    try {
+      let response: unknown
+
+      if (isAdmin) {
+        response = await api.createUserAPIKey({
+          ...formData,
+          expires_at: formData.expires_at || undefined,
+        })
+      } else {
+        response = await api.createSelfAPIKey({
+          name: formData.name,
+          channel_ids: formData.channel_ids,
+          model_ids: formData.model_ids,
+          token_limit: formData.token_limit,
+          expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : undefined,
+        })
+      }
+
+      if (response && typeof response === 'object' && !('error' in response)) {
+        // Show the key value once
+        const keyData = response as { key?: string }
+        if (keyData.key) {
+          setNewKeyValue(keyData.key)
+        }
+        setModalOpen(false)
+        setFormData({
+          user_id: 0,
+          name: '',
+          usage_limit: 0,
+          token_limit: 0,
+          expires_at: '',
+          channel_ids: [],
+          model_ids: [],
+        })
+        loadData()
+      } else {
+        alert('Error: ' + ((response as { error?: string })?.error || 'Failed to create API key'))
+      }
+    } catch (err) {
+      alert('Error creating API key')
+    }
+  }
+
+  async function handleDeleteAPIKey(id: number) {
+    if (!confirm('Are you sure you want to delete this API key?')) return
+    try {
+      if (isAdmin) {
+        await api.deleteUserAPIKey(id)
+      } else {
+        await api.deleteSelfAPIKey(id)
+      }
+      loadData()
+    } catch (err) {
+      alert('Error deleting API key')
+    }
+  }
+
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text)
+    alert('API key copied to clipboard!')
+  }
+
+  function toggleShowKey(id: number) {
+    setShowKey(prev => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  function formatDate(date?: string) {
+    if (!date) return 'Never'
+    return new Date(date).toLocaleString()
+  }
+
+  function isExpired(expiresAt?: string) {
+    if (!expiresAt) return false
+    return new Date(expiresAt) < new Date()
+  }
+
+  function isLimitReached(apiKey: UserAPIKey) {
+    if (apiKey.usage_limit === 0) return false
+    return apiKey.usage_count >= apiKey.usage_limit
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-[20px] font-medium text-white tracking-body">
+            {isAdmin ? 'User API Keys' : 'My API Keys'}
+          </h2>
+          <p className="text-[14px] text-text-muted mt-0.5 tracking-body">
+            {isAdmin ? 'Manage user API keys for accessing the system' : 'Manage your API keys'}
+          </p>
+        </div>
+        <button onClick={() => setModalOpen(true)} className="btn-primary flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Create API Key
+        </button>
+      </div>
+
+      {/* New Key Display */}
+      {newKeyValue && (
+        <div className="card-elevated p-4 border border-raycast-green/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[14px] font-medium text-raycast-green tracking-body">API Key Created</p>
+              <p className="text-[12px] text-text-muted tracking-body mt-1">
+                Copy this key now. You won't be able to see it again.
+              </p>
+              <code className="text-[12px] font-mono text-text-secondary mt-2 block break-all">
+                {newKeyValue}
+              </code>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => copyToClipboard(newKeyValue)}
+                className="btn-primary text-[12px] px-3 py-1.5 flex items-center gap-1"
+              >
+                <Copy className="w-3 h-3" />
+                Copy
+              </button>
+              <button
+                onClick={() => setNewKeyValue(null)}
+                className="btn-secondary text-[12px] px-3 py-1.5"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="card-elevated overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border-medium">
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
+                  Name
+                </th>
+                {isAdmin && (
+                  <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
+                    User
+                  </th>
+                )}
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
+                  API Key
+                </th>
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
+                  Status
+                </th>
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
+                  Usage
+                </th>
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
+                  Expires
+                </th>
+                <th className="text-right px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-medium">
+              {loading ? (
+                <tr>
+                  <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-text-muted tracking-body text-[14px]">
+                    Loading...
+                  </td>
+                </tr>
+              ) : apiKeys.length === 0 ? (
+                <tr>
+                  <td colSpan={isAdmin ? 7 : 6} className="px-4 py-6 text-center text-text-muted tracking-body text-[14px]">
+                    No API keys found
+                  </td>
+                </tr>
+              ) : (
+                apiKeys.map((apiKey) => (
+                  <tr key={apiKey.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-3 text-[14px] text-text-secondary tracking-body">
+                      <div className="flex items-center gap-2">
+                        <Key className="w-4 h-4 text-text-muted" />
+                        {apiKey.name}
+                      </div>
+                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-[14px] text-text-secondary tracking-body">
+                        {apiKey.user?.email || 'Unknown'}
+                      </td>
+                    )}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <code className="text-[12px] font-mono text-text-secondary">
+                          {showKey[apiKey.id] ? apiKey.key : '••••••••••••••'}
+                        </code>
+                        <button
+                          onClick={() => toggleShowKey(apiKey.id)}
+                          className="p-1 text-text-muted hover:text-white transition-colors"
+                        >
+                          {showKey[apiKey.id] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        </button>
+                        <button
+                          onClick={() => copyToClipboard(apiKey.key)}
+                          className="p-1 text-text-muted hover:text-white transition-colors"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {isExpired(apiKey.expires_at) ? (
+                        <span className="badge badge-danger">Expired</span>
+                      ) : isLimitReached(apiKey) ? (
+                        <span className="badge badge-warning">Limit Reached</span>
+                      ) : apiKey.is_active ? (
+                        <span className="badge badge-success">Active</span>
+                      ) : (
+                        <span className="badge badge-danger">Inactive</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-[14px] text-text-muted tracking-body">
+                      {apiKey.usage_count} / {apiKey.usage_limit === 0 ? '∞' : apiKey.usage_limit}
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-text-muted tracking-body">
+                      {apiKey.expires_at ? formatDate(apiKey.expires_at) : 'Never'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleDeleteAPIKey(apiKey.id)}
+                          className="p-1.5 text-text-muted hover:text-raycast-red transition-colors rounded-lg hover:bg-white/[0.05]"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Create API Key Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay">
+          <div className="glass-strong w-full max-w-2xl p-5 relative rounded-xl shadow-2xl border border-white/[0.1] max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setModalOpen(false)}
+              className="absolute top-3 right-3 p-1.5 text-text-muted hover:text-white transition-all rounded-lg hover:bg-white/[0.1]"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <h3 className="text-[18px] font-medium text-white tracking-body mb-4">
+              Create API Key
+            </h3>
+            <form onSubmit={handleCreateAPIKey} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {isAdmin && (
+                  <div>
+                    <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                      User *
+                    </label>
+                    <select
+                      value={formData.user_id}
+                      onChange={(e) => setFormData({ ...formData, user_id: parseInt(e.target.value) })}
+                      required
+                      className="input-dark"
+                    >
+                      <option value={0}>Select user</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.email} ({u.name})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Production API Key"
+                    required
+                    className="input-dark"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {isAdmin ? (
+                  <div>
+                    <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                      Usage Limit (0 = unlimited)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.usage_limit}
+                      onChange={(e) => setFormData({ ...formData, usage_limit: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      className="input-dark"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                      Token Limit (0 = unlimited)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.token_limit}
+                      onChange={(e) => setFormData({ ...formData, token_limit: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      className="input-dark"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                    Expires At (optional)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={formData.expires_at}
+                    onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+                    className="input-dark"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                  {isAdmin ? 'Allowed Channels (empty = all channels)' : 'Select Channels *'}
+                </label>
+                <div className="glass-subtle p-3 rounded-lg max-h-32 overflow-y-auto space-y-1">
+                  {channels.length === 0 ? (
+                    <p className="text-[12px] text-text-muted text-center">
+                      {isAdmin ? 'No channels available' : 'No channels assigned to you'}
+                    </p>
+                  ) : (
+                    channels.map((channel) => (
+                      <label key={channel.id} className="flex items-center gap-2 cursor-pointer hover:bg-white/[0.02] p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={formData.channel_ids.includes(channel.id)}
+                          onChange={() => handleChannelToggle(channel.id)}
+                          className="rounded"
+                        />
+                        <span className="text-[12px] text-text-secondary">{channel.name} ({channel.type})</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                  Allowed Models (empty = all models from selected channels)
+                </label>
+                {formData.channel_ids.length === 0 ? (
+                  <div className="glass-subtle p-3 rounded-lg text-center">
+                    <p className="text-[12px] text-text-muted">
+                      Please select channels first to see available models
+                    </p>
+                  </div>
+                ) : loadingModels ? (
+                  <div className="glass-subtle p-3 rounded-lg text-center">
+                    <p className="text-[12px] text-text-muted">Loading models...</p>
+                  </div>
+                ) : selectedChannelModels.length === 0 ? (
+                  <div className="glass-subtle p-3 rounded-lg text-center">
+                    <p className="text-[12px] text-text-muted">
+                      No models found in selected channels
+                    </p>
+                  </div>
+                ) : (
+                  <div className="glass-subtle p-3 rounded-lg max-h-32 overflow-y-auto space-y-1">
+                    {selectedChannelModels.map((model) => (
+                      <label key={model.id} className="flex items-center gap-2 cursor-pointer hover:bg-white/[0.02] p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={formData.model_ids.includes(model.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({ ...formData, model_ids: [...formData.model_ids, model.id] })
+                            } else {
+                              setFormData({ ...formData, model_ids: formData.model_ids.filter(id => id !== model.id) })
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-[12px] text-text-secondary">{model.display_name || model.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={!formData.name.trim() || (!isAdmin && formData.channel_ids.length === 0)}
+                >
+                  Create API Key
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

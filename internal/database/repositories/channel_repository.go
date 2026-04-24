@@ -129,6 +129,59 @@ func (r *ChannelRepository) BindUserToChannel(userID, channelID uint) error {
 	return r.db.Model(&user).Association("Channels").Append(&channel)
 }
 
+func (r *ChannelRepository) GetUsersByChannelID(channelID uint) ([]models.User, error) {
+	var channel models.Channel
+	err := r.db.Preload("Users").First(&channel, channelID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrChannelNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return channel.Users, nil
+}
+
+func (r *ChannelRepository) GetByUserIDWithModels(userID uint) ([]models.Channel, error) {
+	var user models.User
+	err := r.db.Preload("Channels.Models").First(&user, userID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return user.Channels, nil
+}
+
+// IncrementBudgetUsed atomically increments budget_used using SQL expression.
+// This is safe for concurrent access — the DB handles the atomicity.
+func (r *ChannelRepository) IncrementBudgetUsed(channelID uint, amount float64) error {
+	result := r.db.Model(&models.Channel{}).
+		Where("id = ?", channelID).
+		Update("budget_used", gorm.Expr("budget_used + ?", amount))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrChannelNotFound
+	}
+	return nil
+}
+
+// ResetBudgetUsed resets budget_used to 0 for a channel (admin action).
+func (r *ChannelRepository) ResetBudgetUsed(channelID uint) error {
+	result := r.db.Model(&models.Channel{}).
+		Where("id = ?", channelID).
+		Update("budget_used", 0)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrChannelNotFound
+	}
+	return nil
+}
+
 func (r *ChannelRepository) UnbindUserFromChannel(userID, channelID uint) error {
 	var user models.User
 	if err := r.db.First(&user, userID).Error; err != nil {

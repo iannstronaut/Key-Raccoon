@@ -1,82 +1,102 @@
-version: "3.8"
-
 services:
+  # PostgreSQL
   postgres:
     image: postgres:15-alpine
-    container_name: keyraccoon_postgres
+    container_name: keyraccoon-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: keyraccoon
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-keyraccoon}
     ports:
-      - "5432:5432"
+      - "${DB_PORT_EXPOSE:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - keyraccoon
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
+  # Redis
   redis:
     image: redis:7-alpine
-    container_name: keyraccoon_redis
+    container_name: keyraccoon-redis
+    command: >
+      sh -c '
+        if [ -n "$REDIS_PASS" ] && [ "$REDIS_PASS" != "" ]; then
+          redis-server --appendonly yes --requirepass "$REDIS_PASS";
+        else
+          redis-server --appendonly yes;
+        fi
+      '
+    environment:
+      REDIS_PASS: ${REDIS_PASS:-}
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT_EXPOSE:-6379}:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - keyraccoon
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
+  # KeyRaccoon (backend + frontend)
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: keyraccoon_app
+    container_name: keyraccoon-app
     environment:
-      SERVER_PORT: 3000
-      SERVER_HOST: 0.0.0.0
-      ENVIRONMENT: development
+      # Server
+      SERVER_PORT: "3000"
+      SERVER_HOST: "0.0.0.0"
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+
+      # Database
       DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: password
-      DB_NAME: keyraccoon
-      DB_SSLMODE: disable
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_NAME: ${DB_NAME:-keyraccoon}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+
+      # Redis
       REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASS:
-      REDIS_DB: 0
-      JWT_SECRET: <JWT_SECRET>
-      JWT_EXPIRE: 60
-      ADMIN_EMAIL: admin@keyraccoon.com
-      ADMIN_PASSWORD: AdminPassword123
-      CORS_ORIGIN: "*"
+      REDIS_PORT: "6379"
+      REDIS_PASS: ${REDIS_PASS:-}
+      REDIS_DB: "0"
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRE: ${JWT_EXPIRE:-60}
+
+      # Admin seed
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@keyraccoon.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminPassword123}
+
+      # CORS
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
     ports:
-      - "10.8.0.1:3245:3000"
+      - "${APP_PORT:-80}:80"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:3000/health",
-        ]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    networks:
+      - keyraccoon
     restart: unless-stopped
+
+networks:
+  keyraccoon:
+    driver: bridge
 
 volumes:
   postgres_data:

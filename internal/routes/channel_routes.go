@@ -29,11 +29,17 @@ func SetupChannelRoutes(router fiber.Router, db *gorm.DB) {
 
 	channels.Post("/:id/api-keys", middleware.AdminMiddleware, channelHandler.AddAPIKey)
 	channels.Get("/:id/api-keys", middleware.AdminMiddleware, channelHandler.GetChannelAPIKeys)
+	channels.Delete("/:id/api-keys/:keyID", middleware.AdminMiddleware, channelHandler.DeleteAPIKey)
 	channels.Post("/:id/api-keys/rotate", middleware.AdminMiddleware, channelHandler.RotateAPIKey)
 
 	channels.Post("/:id/models", middleware.AdminMiddleware, channelHandler.AddModel)
 	channels.Get("/:id/models", middleware.AdminMiddleware, channelHandler.GetChannelModels)
+	channels.Put("/:id/models/:modelID", middleware.AdminMiddleware, channelHandler.UpdateModel)
+	channels.Delete("/:id/models/:modelID", middleware.AdminMiddleware, channelHandler.DeleteModel)
 
+	channels.Post("/:id/reset-budget", middleware.AdminMiddleware, channelHandler.ResetBudget)
+
+	channels.Get("/:id/users", middleware.AdminMiddleware, channelHandler.GetChannelUsers)
 	channels.Post("/:id/users/:userID/bind", middleware.AdminMiddleware, channelHandler.BindUserToChannel)
 	channels.Delete("/:id/users/:userID/bind", middleware.AdminMiddleware, channelHandler.UnbindUserFromChannel)
 }

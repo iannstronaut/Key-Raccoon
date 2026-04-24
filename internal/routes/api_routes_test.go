@@ -21,7 +21,7 @@ import (
 func TestAPIV1RoutesUnauthorized(t *testing.T) {
 	db := openAPIV1RoutesDB(t)
 	app := fiber.New()
-	routes.SetupAPIV1Routes(app, db)
+	routes.SetupAPIV1Routes(app, db, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	resp, err := app.Test(req)
@@ -36,7 +36,7 @@ func TestAPIV1RoutesUnauthorized(t *testing.T) {
 func TestAPIV1RoutesInvalidKey(t *testing.T) {
 	db := openAPIV1RoutesDB(t)
 	app := fiber.New()
-	routes.SetupAPIV1Routes(app, db)
+	routes.SetupAPIV1Routes(app, db, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	req.Header.Set("Authorization", "Bearer invalid-key")
@@ -52,7 +52,7 @@ func TestAPIV1RoutesInvalidKey(t *testing.T) {
 func TestAPIV1RoutesListModels(t *testing.T) {
 	db, apiKey := seedAPIV1RoutesData(t)
 	app := fiber.New()
-	routes.SetupAPIV1Routes(app, db)
+	routes.SetupAPIV1Routes(app, db, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	req.Header.Set("Authorization", "Bearer "+apiKey.Key)
@@ -77,7 +77,7 @@ func TestAPIV1RoutesListModels(t *testing.T) {
 func TestAPIV1RoutesEmbeddings(t *testing.T) {
 	db, apiKey := seedAPIV1RoutesData(t)
 	app := fiber.New()
-	routes.SetupAPIV1Routes(app, db)
+	routes.SetupAPIV1Routes(app, db, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", bytes.NewReader([]byte(`{}`)))
 	req.Header.Set("Content-Type", "application/json")
@@ -94,7 +94,7 @@ func TestAPIV1RoutesEmbeddings(t *testing.T) {
 func TestAPIV1RoutesChatCompletionValidation(t *testing.T) {
 	db, apiKey := seedAPIV1RoutesData(t)
 	app := fiber.New()
-	routes.SetupAPIV1Routes(app, db)
+	routes.SetupAPIV1Routes(app, db, nil)
 
 	// Missing model
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader([]byte(`{"messages": [{"role": "user", "content": "Hello"}]}`)))
@@ -134,13 +134,13 @@ func openAPIV1RoutesDB(t *testing.T) *gorm.DB {
 		t.Fatalf("db.DB() error = %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	if err := db.AutoMigrate(&models.User{}, &models.Channel{}, &models.APIKey{}, &models.ChannelAPIKey{}, &models.Model{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Channel{}, &models.UserAPIKey{}, &models.UserAPIKeyModel{}, &models.ChannelAPIKey{}, &models.Model{}); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
 	}
 	return db
 }
 
-func seedAPIV1RoutesData(t *testing.T) (*gorm.DB, *models.APIKey) {
+func seedAPIV1RoutesData(t *testing.T) (*gorm.DB, *models.UserAPIKey) {
 	t.Helper()
 
 	db := openAPIV1RoutesDB(t)
@@ -167,19 +167,15 @@ func seedAPIV1RoutesData(t *testing.T) (*gorm.DB, *models.APIKey) {
 		t.Fatalf("channelRepo.Create() error = %v", err)
 	}
 
-	apiKeyRepo := repositories.NewAPIKeyRepository(db)
-	apiKeyService := services.NewAPIKeyService(apiKeyRepo, userRepo)
-	apiKey, err := apiKeyService.CreateAPIKey(user.ID, "API V1 Key", 1000, 100)
+	userAPIKeyRepo := repositories.NewUserAPIKeyRepository(db)
+	modelRepo := repositories.NewModelRepository(db)
+	userAPIKeyService := services.NewUserAPIKeyService(userAPIKeyRepo, userRepo, channelRepo, modelRepo)
+	apiKey, err := userAPIKeyService.CreateAPIKey(user.ID, "API V1 Key", 1000, nil, []uint{channel.ID}, []uint{})
 	if err != nil {
 		t.Fatalf("CreateAPIKey() error = %v", err)
 	}
 
-	if err := apiKeyService.BindChannel(apiKey.ID, channel.ID); err != nil {
-		t.Fatalf("BindChannel() error = %v", err)
-	}
-
 	channelAPIKeyRepo := repositories.NewChannelAPIKeyRepository(db)
-	modelRepo := repositories.NewModelRepository(db)
 	channelService := services.NewChannelService(channelRepo, channelAPIKeyRepo, modelRepo, userRepo)
 
 	if _, err := channelService.AddAPIKey(channel.ID); err != nil {

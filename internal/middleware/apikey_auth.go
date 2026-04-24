@@ -9,7 +9,10 @@ import (
 )
 
 // APIKeyAuthMiddleware extracts and validates the API key from the Authorization header.
-func APIKeyAuthMiddleware(apiKeyService *services.APIKeyService) fiber.Handler {
+// Uses the UserAPIKey system for authentication.
+func APIKeyAuthMiddleware(
+	userAPIKeyService *services.UserAPIKeyService,
+) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
@@ -33,7 +36,8 @@ func APIKeyAuthMiddleware(apiKeyService *services.APIKeyService) fiber.Handler {
 
 		apiKey := parts[1]
 
-		keyData, err := apiKeyService.VerifyAPIKey(apiKey)
+		// Verify UserAPIKey
+		userKeyData, err := userAPIKeyService.VerifyAPIKey(apiKey)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": fiber.Map{
@@ -43,10 +47,29 @@ func APIKeyAuthMiddleware(apiKeyService *services.APIKeyService) fiber.Handler {
 			})
 		}
 
-		c.Locals("api_key_id", keyData.ID)
-		c.Locals("user_id", keyData.UserID)
-		c.Locals("api_key_channels", keyData.Channels)
-
+		// Set context for UserAPIKey
+		c.Locals("api_key_id", userKeyData.ID)
+		c.Locals("user_id", userKeyData.UserID)
+		c.Locals("user_api_key", userKeyData)
+		c.Locals("api_key_type", "user_api_key")
+		
+		// Set channels - use all channels if empty, otherwise use specified
+		if len(userKeyData.Channels) > 0 {
+			c.Locals("api_key_channels", userKeyData.Channels)
+		} else {
+			// Empty means all channels allowed - handler will handle this
+			c.Locals("api_key_channels", []interface{}{})
+		}
+		
+		// Set allowed models
+		if len(userKeyData.Models) > 0 {
+			modelIDs := make([]uint, 0, len(userKeyData.Models))
+			for _, m := range userKeyData.Models {
+				modelIDs = append(modelIDs, m.ModelID)
+			}
+			c.Locals("allowed_models", modelIDs)
+		}
+		
 		return c.Next()
 	}
 }

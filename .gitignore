@@ -1,4 +1,35 @@
 # ==============================================================================
+# Docker
+# ==============================================================================
+# Docker volumes and data
+postgres_data/
+redis_data/
+postgres_dev_data/
+redis_dev_data/
+postgres_prod_data/
+redis_prod_data/
+
+# Docker build cache
+.docker/
+
+# SSL certificates
+ssl/
+*.pem
+*.key
+*.cert
+*.crt
+
+# Backups
+backups/
+*.sql
+*.rdb
+*.tar.gz
+
+# Air (hot reload) temporary files
+tmp/
+build-errors.log
+
+# ==============================================================================
 # Go
 # ==============================================================================
 # Hasil build binary (sesuaikan dengan nama aplikasi Anda nantinya)
@@ -29,6 +60,7 @@ go.work.sum
 .gocache/
 .gomodcache/
 .dev/
+/docs/
 
 # ==============================================================================
 # Environment Variables & Secrets (SANGAT PENTING)
@@ -88,3 +120,30 @@ Desktop.ini
 *.swp
 *.swo
 .netrwhist
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+frontend/node_modules
+frontend/dist
+frontend/dist-ssr
+frontend/*.local
+frontend/.env
+frontend/.env.example
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

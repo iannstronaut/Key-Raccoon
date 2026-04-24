@@ -30,13 +30,14 @@ func NewChannelService(
 	}
 }
 
-func (s *ChannelService) CreateChannel(name, channelType, description string) (*models.Channel, error) {
+func (s *ChannelService) CreateChannel(name, channelType, endpoint, description string) (*models.Channel, error) {
 	if s.channelRepo == nil || s.apiKeyRepo == nil || s.modelRepo == nil {
 		return nil, errors.New("channel service dependencies are not initialized")
 	}
 
 	name = strings.TrimSpace(name)
 	channelType = strings.ToLower(strings.TrimSpace(channelType))
+	endpoint = strings.TrimSpace(endpoint)
 	description = strings.TrimSpace(description)
 
 	if name == "" {
@@ -45,11 +46,17 @@ func (s *ChannelService) CreateChannel(name, channelType, description string) (*
 
 	validTypes := map[string]bool{
 		"openai":    true,
-		"anthropic": true,
+		"anthr0pic": true,
 		"cohere":    true,
+		"custom":    true,
 	}
 	if !validTypes[channelType] {
 		return nil, fmt.Errorf("invalid channel type: %s", channelType)
+	}
+
+	// Validate endpoint for custom type
+	if channelType == "custom" && endpoint == "" {
+		return nil, errors.New("endpoint is required for custom channel type")
 	}
 
 	if _, err := s.channelRepo.GetByName(name); err == nil {
@@ -61,6 +68,7 @@ func (s *ChannelService) CreateChannel(name, channelType, description string) (*
 	channel := &models.Channel{
 		Name:        name,
 		Type:        channelType,
+		Endpoint:    endpoint,
 		Description: description,
 		IsActive:    true,
 	}
@@ -83,6 +91,7 @@ func (s *ChannelService) UpdateChannel(channelID uint, updates map[string]any) (
 	allowedFields := map[string]bool{
 		"name":        true,
 		"description": true,
+		"endpoint":    true,
 		"is_active":   true,
 	}
 
@@ -125,6 +134,31 @@ func (s *ChannelService) AddAPIKey(channelID uint) (*models.ChannelAPIKey, error
 	apiKey := &models.ChannelAPIKey{
 		ChannelID: channel.ID,
 		APIKey:    apiKeyStr,
+		IsActive:  true,
+	}
+
+	if err := s.apiKeyRepo.Create(apiKey); err != nil {
+		return nil, fmt.Errorf("failed to create api key: %w", err)
+	}
+
+	return apiKey, nil
+}
+
+func (s *ChannelService) AddAPIKeyWithValue(channelID uint, apiKeyValue string) (*models.ChannelAPIKey, error) {
+	channel, err := s.channelRepo.GetByID(channelID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Validate API key is not empty
+	apiKeyValue = strings.TrimSpace(apiKeyValue)
+	if apiKeyValue == "" {
+		return nil, errors.New("api key cannot be empty")
+	}
+
+	apiKey := &models.ChannelAPIKey{
+		ChannelID: channel.ID,
+		APIKey:    apiKeyValue,
 		IsActive:  true,
 	}
 
@@ -260,4 +294,40 @@ func (s *ChannelService) UnbindUserFromChannel(userID, channelID uint) error {
 
 func (s *ChannelService) GetUserChannels(userID uint) ([]models.Channel, error) {
 	return s.channelRepo.GetByUserID(userID)
+}
+
+func (s *ChannelService) GetChannelUsers(channelID uint) ([]models.User, error) {
+	channel, err := s.channelRepo.GetByID(channelID)
+	if err != nil {
+		return nil, err
+	}
+	return s.channelRepo.GetUsersByChannelID(channel.ID)
+}
+
+func (s *ChannelService) GetUserChannelsWithModels(userID uint) ([]models.Channel, error) {
+	return s.channelRepo.GetByUserIDWithModels(userID)
+}
+
+// CheckBudget checks if a channel has remaining budget.
+// Returns true if budget is unlimited (0) or budget_used < budget.
+func (s *ChannelService) CheckBudget(channelID uint) (bool, error) {
+	channel, err := s.channelRepo.GetByID(channelID)
+	if err != nil {
+		return false, err
+	}
+	return channel.HasBudgetAvailable(), nil
+}
+
+// RecordBudgetUsage atomically increments budget_used for a channel.
+// Safe for concurrent access.
+func (s *ChannelService) RecordBudgetUsage(channelID uint, cost float64) error {
+	if cost <= 0 {
+		return nil
+	}
+	return s.channelRepo.IncrementBudgetUsed(channelID, cost)
+}
+
+// ResetBudgetUsed resets budget_used to 0 for a channel.
+func (s *ChannelService) ResetBudgetUsed(channelID uint) error {
+	return s.channelRepo.ResetBudgetUsed(channelID)
 }
