@@ -11,7 +11,7 @@ import (
 )
 
 // SetupAPIV1Routes registers 0penAI-compatible API v1 routes.
-func SetupAPIV1Routes(router fiber.Router, db *gorm.DB) {
+func SetupAPIV1Routes(router fiber.Router, db *gorm.DB, logService *services.LogService) {
 	userAPIKeyRepo := repositories.NewUserAPIKeyRepository(db)
 	userRepo := repositories.NewUserRepository(db)
 	channelRepo := repositories.NewChannelRepository(db)
@@ -23,7 +23,7 @@ func SetupAPIV1Routes(router fiber.Router, db *gorm.DB) {
 	channelService := services.NewChannelService(channelRepo, apiKeyChannelRepo, modelRepo, userRepo)
 	proxyService := services.NewProxyService(proxyRepo)
 
-	chatHandler := handlers.NewChatHandler(userAPIKeyService, channelService, proxyService)
+	chatHandler := handlers.NewChatHandler(userAPIKeyService, channelService, proxyService, logService)
 
 	api := router.Group("/v1", middleware.APIKeyAuthMiddleware(userAPIKeyService))
 

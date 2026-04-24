@@ -113,7 +113,7 @@ func TestChatHandlerUsesChannelEndpoint(t *testing.T) {
 	// Create handler
 	channelService := services.NewChannelService(channelRepo, channelAPIKeyRepo, modelRepo, userRepo)
 	proxyService := services.NewProxyService(repositories.NewProxyRepository(db))
-	handler := handlers.NewChatHandler(userAPIKeyService, channelService, proxyService)
+	handler := handlers.NewChatHandler(userAPIKeyService, channelService, proxyService, nil)
 
 	// Setup Fiber app
 	app := fiber.New()

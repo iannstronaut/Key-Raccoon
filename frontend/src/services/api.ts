@@ -159,8 +159,38 @@ class APIService {
     return this.request<unknown>("GET", `/channels/${channelId}/models`);
   }
 
+  async updateChannelModel(channelId: number, modelId: number, data: {
+    display_name?: string;
+    token_price?: number;
+    system_prompt?: string;
+    is_active?: boolean;
+  }) {
+    return this.request<unknown>("PUT", `/channels/${channelId}/models/${modelId}`, data);
+  }
+
   async deleteChannelModel(channelId: number, modelId: number) {
     return this.request<unknown>("DELETE", `/channels/${channelId}/models/${modelId}`);
+  }
+
+  // Channel Budget
+  async resetChannelBudget(channelId: number) {
+    return this.request<unknown>("POST", `/channels/${channelId}/reset-budget`);
+  }
+
+  // Channel Users
+  async getChannelUsers(channelId: number) {
+    return this.request<{ users: unknown[]; total: number }>(
+      "GET",
+      `/channels/${channelId}/users`,
+    );
+  }
+
+  async bindUserToChannel(channelId: number, userId: number) {
+    return this.request<unknown>("POST", `/channels/${channelId}/users/${userId}/bind`);
+  }
+
+  async unbindUserFromChannel(channelId: number, userId: number) {
+    return this.request<unknown>("DELETE", `/channels/${channelId}/users/${userId}/bind`);
   }
 
   // Proxies
@@ -236,6 +266,90 @@ class APIService {
 
   async deleteUserAPIKey(id: number) {
     return this.request<unknown>("DELETE", `/user-api-keys/${id}`);
+  }
+
+  // Self-service API Keys
+  async getMyChannels() {
+    return this.request<{ channels: unknown[]; total: number }>(
+      "GET",
+      "/user-api-keys/my-channels",
+    );
+  }
+
+  async createSelfAPIKey(data: {
+    name: string;
+    channel_ids: number[];
+    model_ids: number[];
+    token_limit?: number;
+    expires_at?: string;
+  }) {
+    return this.request<unknown>("POST", "/user-api-keys/self", data);
+  }
+
+  async deleteSelfAPIKey(id: number) {
+    return this.request<unknown>("DELETE", `/user-api-keys/self/${id}`);
+  }
+
+  // Logs
+  async getLogs(params?: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+    model?: string;
+    channel_id?: number;
+    user_id?: number;
+    api_key_id?: number;
+    date_from?: string;
+    date_to?: string;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    return this.request<{ logs: unknown[]; total: number }>(
+      "GET",
+      `/logs${query ? `?${query}` : ''}`,
+    );
+  }
+
+  async getLogStats(params?: {
+    channel_id?: number;
+    user_id?: number;
+    date_from?: string;
+    date_to?: string;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          searchParams.set(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    return this.request<unknown>(
+      "GET",
+      `/logs/stats${query ? `?${query}` : ''}`,
+    );
+  }
+
+  async getUserLogs(userId: number, limit = 50, offset = 0) {
+    return this.request<{ logs: unknown[]; total: number }>(
+      "GET",
+      `/logs/user/${userId}?limit=${limit}&offset=${offset}`,
+    );
+  }
+
+  async getAPIKeyLogs(keyId: number, limit = 50, offset = 0) {
+    return this.request<{ logs: unknown[]; total: number }>(
+      "GET",
+      `/logs/api-key/${keyId}?limit=${limit}&offset=${offset}`,
+    );
   }
 
   async addChannelToAPIKey(apiKeyId: number, channelId: number) {

@@ -13,11 +13,12 @@ import (
 )
 
 type UserAPIKeyHandler struct {
-	service *services.UserAPIKeyService
+	service        *services.UserAPIKeyService
+	channelService *services.ChannelService
 }
 
-func NewUserAPIKeyHandler(service *services.UserAPIKeyService) *UserAPIKeyHandler {
-	return &UserAPIKeyHandler{service: service}
+func NewUserAPIKeyHandler(service *services.UserAPIKeyService, channelService *services.ChannelService) *UserAPIKeyHandler {
+	return &UserAPIKeyHandler{service: service, channelService: channelService}
 }
 
 func (h *UserAPIKeyHandler) CreateAPIKey(c *fiber.Ctx) error {
@@ -103,6 +104,13 @@ func (h *UserAPIKeyHandler) GetAPIKey(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
+	// Ownership check: non-admin users can only view their own keys
+	currentUserID, _ := c.Locals("user_id").(uint)
+	userRole, _ := c.Locals("user_role").(string)
+	if userRole != "admin" && userRole != "superadmin" && apiKey.UserID != currentUserID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "access denied"})
+	}
+
 	return c.JSON(sanitizeUserAPIKey(apiKey))
 }
 
@@ -110,6 +118,13 @@ func (h *UserAPIKeyHandler) GetUserAPIKeys(c *fiber.Ctx) error {
 	userID, err := parseID(c.Params("userID"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid user id"})
+	}
+
+	// Ownership check: non-admin users can only view their own keys
+	currentUserID, _ := c.Locals("user_id").(uint)
+	userRole, _ := c.Locals("user_role").(string)
+	if userRole != "admin" && userRole != "superadmin" && userID != currentUserID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "access denied"})
 	}
 
 	apiKeys, err := h.service.GetUserAPIKeys(userID)
@@ -267,6 +282,113 @@ func (h *UserAPIKeyHandler) RemoveModel(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"message": "model removed successfully"})
+}
+
+func (h *UserAPIKeyHandler) CreateSelfAPIKey(c *fiber.Ctx) error {
+	userID, _ := c.Locals("user_id").(uint)
+	if userID == 0 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
+
+	var req struct {
+		Name       string  `json:"name"`
+		ChannelIDs []uint  `json:"channel_ids"`
+		ModelIDs   []uint  `json:"model_ids"`
+		TokenLimit int64   `json:"token_limit"`
+		ExpiresAt  *string `json:"expires_at"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+
+	var expiresAt *time.Time
+	if req.ExpiresAt != nil && *req.ExpiresAt != "" {
+		t, err := time.Parse(time.RFC3339, *req.ExpiresAt)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid expires_at format, use RFC3339"})
+		}
+		expiresAt = &t
+	}
+
+	apiKey, err := h.service.CreateSelfServiceAPIKey(
+		userID,
+		req.Name,
+		req.ChannelIDs,
+		req.ModelIDs,
+		req.TokenLimit,
+		expiresAt,
+	)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(sanitizeUserAPIKey(apiKey))
+}
+
+func (h *UserAPIKeyHandler) DeleteSelfAPIKey(c *fiber.Ctx) error {
+	userID, _ := c.Locals("user_id").(uint)
+	if userID == 0 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
+
+	id, err := parseID(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid api key id"})
+	}
+
+	if err := h.service.DeleteSelfAPIKey(id, userID); err != nil {
+		if err == repositories.ErrUserAPIKeyNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "api key deleted successfully"})
+}
+
+func (h *UserAPIKeyHandler) GetMyChannels(c *fiber.Ctx) error {
+	userID, _ := c.Locals("user_id").(uint)
+	if userID == 0 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
+
+	channels, err := h.channelService.GetUserChannelsWithModels(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// Sanitize: do NOT include API keys for regular users
+	response := make([]fiber.Map, 0, len(channels))
+	for _, ch := range channels {
+		modelsList := make([]fiber.Map, 0, len(ch.Models))
+		for _, m := range ch.Models {
+			modelsList = append(modelsList, fiber.Map{
+				"id":           m.ID,
+				"channel_id":   m.ChannelID,
+				"name":         m.Name,
+				"display_name": m.DisplayName,
+				"is_active":    m.IsActive,
+				"token_price":  m.TokenPrice,
+			})
+		}
+		response = append(response, fiber.Map{
+			"id":          ch.ID,
+			"name":        ch.Name,
+			"type":        ch.Type,
+			"endpoint":    ch.Endpoint,
+			"is_active":   ch.IsActive,
+			"description": ch.Description,
+			"budget":      ch.Budget,
+			"budget_used": ch.BudgetUsed,
+			"models":      modelsList,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"channels": response,
+		"total":    len(response),
+	})
 }
 
 func parseID(param string) (uint, error) {

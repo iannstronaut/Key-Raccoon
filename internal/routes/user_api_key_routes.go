@@ -14,17 +14,23 @@ func SetupUserAPIKeyRoutes(router fiber.Router, db *gorm.DB) {
 	apiKeyRepo := repositories.NewUserAPIKeyRepository(db)
 	userRepo := repositories.NewUserRepository(db)
 	channelRepo := repositories.NewChannelRepository(db)
+	apiKeyChannelRepo := repositories.NewChannelAPIKeyRepository(db)
 	modelRepo := repositories.NewModelRepository(db)
 
 	apiKeyService := services.NewUserAPIKeyService(apiKeyRepo, userRepo, channelRepo, modelRepo)
-	apiKeyHandler := handlers.NewUserAPIKeyHandler(apiKeyService)
+	channelService := services.NewChannelService(channelRepo, apiKeyChannelRepo, modelRepo, userRepo)
+	apiKeyHandler := handlers.NewUserAPIKeyHandler(apiKeyService, channelService)
 
 	apiKeys := router.Group("/user-api-keys", middleware.AuthMiddleware)
-	
+
+	// Self-service routes (any authenticated user) — must be before /:id routes
+	apiKeys.Get("/my-channels", apiKeyHandler.GetMyChannels)
+	apiKeys.Post("/self", apiKeyHandler.CreateSelfAPIKey)
+	apiKeys.Delete("/self/:id", apiKeyHandler.DeleteSelfAPIKey)
+
 	// Admin can view all API keys
 	apiKeys.Get("", middleware.AdminMiddleware, apiKeyHandler.GetAllAPIKeys)
 	apiKeys.Get("/:id", apiKeyHandler.GetAPIKey)
-	
 	// Get API keys for a specific user
 	apiKeys.Get("/user/:userID", apiKeyHandler.GetUserAPIKeys)
 	

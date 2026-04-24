@@ -59,7 +59,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@keyraccoon.com"
+                placeholder="Enter your email"
                 required
                 autoComplete="email"
                 className="input-dark"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Users, Link2, Shield, Activity, Database, Server } from 'lucide-react'
 import { api } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 import type { User, Channel, Proxy, HealthStatus } from '../types'
 
 interface Stats {
@@ -11,6 +12,9 @@ interface Stats {
 }
 
 export default function DashboardPage() {
+  const { hasPermission } = useAuth()
+  const isAdmin = hasPermission('view:users')
+
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
     totalChannels: 0,
@@ -28,31 +32,42 @@ export default function DashboardPage() {
 
   async function loadDashboardData() {
     try {
-      const [usersRes, channelsRes, proxiesRes, healthRes] = await Promise.all([
-        api.getUsers(1),
-        api.getChannels(1),
-        api.getProxies(1),
-        api.getHealth(),
-      ])
+      const promises: Promise<unknown>[] = [api.getHealth()]
 
-      const usersData = usersRes as { users?: User[]; total?: number }
-      const channelsData = channelsRes as { channels?: Channel[]; total?: number }
-      const proxiesData = proxiesRes as { proxies?: Proxy[]; total?: number }
+      if (isAdmin) {
+        promises.push(api.getUsers(1), api.getChannels(1), api.getProxies(1))
+      } else {
+        promises.push(api.getMyChannels())
+      }
 
-      const users = usersData?.users ?? []
-      const channels = channelsData?.channels ?? []
-      const proxies = proxiesData?.proxies ?? []
+      const results = await Promise.all(promises)
+      const healthRes = results[0]
 
-      const activeProxies = proxies.filter((p) => p.status === 'healthy').length
+      if (isAdmin) {
+        const usersData = results[1] as { users?: User[]; total?: number }
+        const channelsData = results[2] as { channels?: Channel[]; total?: number }
+        const proxiesData = results[3] as { proxies?: Proxy[]; total?: number }
 
-      setStats({
-        totalUsers: usersData?.total ?? users.length,
-        totalChannels: channelsData?.total ?? channels.length,
-        activeProxies,
-        tokenUsage: 0,
-      })
+        const proxies = proxiesData?.proxies ?? []
+        const activeProxies = proxies.filter((p) => p.status === 'healthy').length
 
-      if (healthRes && 'database_ok' in healthRes) {
+        setStats({
+          totalUsers: usersData?.total ?? 0,
+          totalChannels: channelsData?.total ?? 0,
+          activeProxies,
+          tokenUsage: 0,
+        })
+      } else {
+        const channelsData = results[1] as { channels?: Channel[]; total?: number }
+        setStats({
+          totalUsers: 0,
+          totalChannels: channelsData?.total ?? (channelsData?.channels?.length ?? 0),
+          activeProxies: 0,
+          tokenUsage: 0,
+        })
+      }
+
+      if (healthRes && typeof healthRes === 'object' && 'database_ok' in (healthRes as Record<string, unknown>)) {
         setHealth(healthRes as HealthStatus)
       }
     } catch (err) {
@@ -62,13 +77,19 @@ export default function DashboardPage() {
     }
   }
 
-  const statCards = [
+  const adminStatCards = [
     { label: 'Total Users', value: stats.totalUsers, icon: Users },
     { label: 'Total Channels', value: stats.totalChannels, icon: Link2 },
     { label: 'Active Proxies', value: stats.activeProxies, icon: Shield },
     { label: 'Token Usage Today', value: stats.tokenUsage, icon: Activity },
   ]
 
+  const userStatCards = [
+    { label: 'My Channels', value: stats.totalChannels, icon: Link2 },
+    { label: 'Token Usage Today', value: stats.tokenUsage, icon: Activity },
+  ]
+
+  const statCards = isAdmin ? adminStatCards : userStatCards
   const isHealthy = health?.database_ok && health?.redis_ok
 
   return (
@@ -83,7 +104,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-2'} gap-3`}>
         {statCards.map((card) => (
           <div key={card.label} className="card-elevated p-4 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center justify-between">

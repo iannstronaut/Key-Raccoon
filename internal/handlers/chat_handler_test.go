@@ -287,7 +287,7 @@ func setupChatHandler(t *testing.T) (*handlers.ChatHandler, *models.UserAPIKey) 
 	channelService := services.NewChannelService(channelRepo, channelAPIKeyRepo, modelRepo, userRepo)
 	proxyService := services.NewProxyService(repositories.NewProxyRepository(db))
 
-	handler := handlers.NewChatHandler(userAPIKeyService, channelService, proxyService)
+	handler := handlers.NewChatHandler(userAPIKeyService, channelService, proxyService, nil)
 	return handler, apiKey
 }
 
@@ -357,7 +357,7 @@ func setupChatHandlerWithChannel(t *testing.T) (*handlers.ChatHandler, *models.U
 		t.Fatalf("AddAPIKey() error = %v", err)
 	}
 
-	handler = handlers.NewChatHandler(userAPIKeyService, channelService, proxyService)
+	handler = handlers.NewChatHandler(userAPIKeyService, channelService, proxyService, nil)
 	return handler, apiKey, channel
 }
 
@@ -420,6 +420,6 @@ func setupChatHandlerWithChannelAndModel(t *testing.T) (*handlers.ChatHandler, *
 		t.Fatalf("AddModel() error = %v", err)
 	}
 
-	handler := handlers.NewChatHandler(userAPIKeyService, channelService, proxyService)
+	handler := handlers.NewChatHandler(userAPIKeyService, channelService, proxyService, nil)
 	return handler, apiKey, channel
 }
