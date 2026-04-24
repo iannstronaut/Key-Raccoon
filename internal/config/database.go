@@ -54,6 +54,7 @@ func InitDatabase(cfg *Config) error {
 		&models.Proxy{},
 		&models.UserAPIKey{},
 		&models.UserAPIKeyModel{},
+		&models.RequestLog{},
 	); err != nil {
 		return fmt.Errorf("auto migrate: %w", err)
 	}

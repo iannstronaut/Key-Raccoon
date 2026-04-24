@@ -15,6 +15,7 @@ export default function ChannelsPage() {
     type: "openai",
     endpoint: "",
     description: "",
+    budget: 0,
   });
   const { hasPermission } = useAuth();
 
@@ -49,6 +50,7 @@ export default function ChannelsPage() {
           type: "",
           endpoint: "",
           description: "",
+          budget: 0,
         });
         loadChannels();
       } else {
@@ -117,6 +119,9 @@ export default function ChannelsPage() {
                 <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
                   API Keys
                 </th>
+                <th className="text-left px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
+                  Budget
+                </th>
                 {(canEdit || canDelete) && (
                   <th className="text-right px-4 py-3 text-[12px] font-medium text-text-muted tracking-body">
                     Actions
@@ -128,7 +133,7 @@ export default function ChannelsPage() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={canEdit || canDelete ? 6 : 5}
+                    colSpan={canEdit || canDelete ? 7 : 6}
                     className="px-4 py-6 text-center text-text-muted tracking-body text-[14px]"
                   >
                     Loading...
@@ -137,7 +142,7 @@ export default function ChannelsPage() {
               ) : channels.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={canEdit || canDelete ? 6 : 5}
+                    colSpan={canEdit || canDelete ? 7 : 6}
                     className="px-4 py-6 text-center text-text-muted tracking-body text-[14px]"
                   >
                     No channels found
@@ -167,6 +172,15 @@ export default function ChannelsPage() {
                     </td>
                     <td className="px-4 py-3 text-[14px] text-text-muted tracking-body">
                       {channel.api_keys?.length || 0}
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-text-muted tracking-body">
+                      {channel.budget <= 0 ? (
+                        <span className="text-text-dim">Unlimited</span>
+                      ) : (
+                        <span>
+                          ${channel.budget_used.toFixed(2)} / ${channel.budget.toFixed(2)}
+                        </span>
+                      )}
                     </td>
                     {(canEdit || canDelete) && (
                       <td className="px-4 py-3">
@@ -281,6 +295,25 @@ export default function ChannelsPage() {
                   placeholder="Optional description"
                   className="input-dark"
                 />
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                  Budget (0 = unlimited)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.budget}
+                  onChange={(e) =>
+                    setFormData({ ...formData, budget: parseFloat(e.target.value) || 0 })
+                  }
+                  placeholder="0"
+                  className="input-dark"
+                />
+                <p className="text-[10px] text-text-dim mt-1 tracking-body">
+                  Maximum cost allowed for this channel. 0 means unlimited.
+                </p>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button

@@ -9,22 +9,26 @@ import {
   LogOut,
   Menu,
   Key,
+  FileText,
+  Layers,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, permission: "view:dashboard" },
   { path: "/users", label: "Users", icon: Users, permission: "view:users" },
-  { path: "/channels", label: "Channels", icon: Link2, permission: "view:channels" },
+  { path: "/channels", label: "Channels", icon: Link2, permission: "view:users" },
+  { path: "/my-channels", label: "My Channels", icon: Layers, permission: "view:my-channels", hideForAdmin: true },
   { path: "/proxies", label: "Proxies", icon: Shield, permission: "view:proxies" },
   { path: "/api-keys", label: "API Keys", icon: Key, permission: "view:dashboard" },
+  { path: "/logs", label: "Logs", icon: FileText, permission: "view:logs" },
   { path: "/analytics", label: "Analytics", icon: BarChart3, permission: "view:analytics" },
 ];
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
-  const { logout, hasPermission } = useAuth();
+  const { logout, hasPermission, isAdmin: userIsAdmin } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -32,10 +36,14 @@ export default function Layout() {
   };
 
   // Filter nav items based on permissions
-  const visibleNavItems = navItems.filter(item => hasPermission(item.permission));
+  const visibleNavItems = navItems.filter(item => {
+    if (!hasPermission(item.permission)) return false;
+    if ((item as { hideForAdmin?: boolean }).hideForAdmin && userIsAdmin) return false;
+    return true;
+  });
 
   return (
-    <div className="flex min-h-screen bg-bg-deep">
+    <div className="flex h-screen overflow-hidden bg-bg-deep">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -102,9 +110,9 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 glass-strong border-b border-white/[0.08]">
+        <header className="shrink-0 z-30 glass-strong border-b border-white/[0.08]">
           <div className="flex items-center justify-between px-4 py-3">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -116,8 +124,8 @@ export default function Layout() {
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+        {/* Page content — only this area scrolls */}
+        <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
           <Outlet />
         </main>
       </div>

@@ -21,7 +21,7 @@ import (
 func TestAPIV1RoutesUnauthorized(t *testing.T) {
 	db := openAPIV1RoutesDB(t)
 	app := fiber.New()
-	routes.SetupAPIV1Routes(app, db)
+	routes.SetupAPIV1Routes(app, db, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	resp, err := app.Test(req)
@@ -36,7 +36,7 @@ func TestAPIV1RoutesUnauthorized(t *testing.T) {
 func TestAPIV1RoutesInvalidKey(t *testing.T) {
 	db := openAPIV1RoutesDB(t)
 	app := fiber.New()
-	routes.SetupAPIV1Routes(app, db)
+	routes.SetupAPIV1Routes(app, db, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	req.Header.Set("Authorization", "Bearer invalid-key")
@@ -52,7 +52,7 @@ func TestAPIV1RoutesInvalidKey(t *testing.T) {
 func TestAPIV1RoutesListModels(t *testing.T) {
 	db, apiKey := seedAPIV1RoutesData(t)
 	app := fiber.New()
-	routes.SetupAPIV1Routes(app, db)
+	routes.SetupAPIV1Routes(app, db, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	req.Header.Set("Authorization", "Bearer "+apiKey.Key)
@@ -77,7 +77,7 @@ func TestAPIV1RoutesListModels(t *testing.T) {
 func TestAPIV1RoutesEmbeddings(t *testing.T) {
 	db, apiKey := seedAPIV1RoutesData(t)
 	app := fiber.New()
-	routes.SetupAPIV1Routes(app, db)
+	routes.SetupAPIV1Routes(app, db, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", bytes.NewReader([]byte(`{}`)))
 	req.Header.Set("Content-Type", "application/json")
@@ -94,7 +94,7 @@ func TestAPIV1RoutesEmbeddings(t *testing.T) {
 func TestAPIV1RoutesChatCompletionValidation(t *testing.T) {
 	db, apiKey := seedAPIV1RoutesData(t)
 	app := fiber.New()
-	routes.SetupAPIV1Routes(app, db)
+	routes.SetupAPIV1Routes(app, db, nil)
 
 	// Missing model
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader([]byte(`{"messages": [{"role": "user", "content": "Hello"}]}`)))

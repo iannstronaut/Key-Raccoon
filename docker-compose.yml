@@ -1,41 +1,45 @@
-version: "3.8"
-
 services:
-  # ============================================
-  # Database - PostgreSQL
-  # ============================================
+  # PostgreSQL
   postgres:
     image: postgres:15-alpine
-    container_name: keyraccoon_postgres
+    container_name: keyraccoon-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: keyraccoon
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-keyraccoon}
     ports:
-      - "5432:5432"
+      - "${DB_PORT_EXPOSE:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - keyraccoon-network
+      - keyraccoon
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
-  # ============================================
-  # Cache - Redis
-  # ============================================
+  # Redis
   redis:
     image: redis:7-alpine
-    container_name: keyraccoon_redis
+    container_name: keyraccoon-redis
+    command: >
+      sh -c '
+        if [ -n "$REDIS_PASS" ] && [ "$REDIS_PASS" != "" ]; then
+          redis-server --appendonly yes --requirepass "$REDIS_PASS";
+        else
+          redis-server --appendonly yes;
+        fi
+      '
+    environment:
+      REDIS_PASS: ${REDIS_PASS:-}
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT_EXPOSE:-6379}:6379"
     volumes:
       - redis_data:/data
     networks:
-      - keyraccoon-network
+      - keyraccoon
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -43,98 +47,57 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ============================================
-  # Backend API - Go/Fiber
-  # ============================================
-  backend:
+  # KeyRaccoon (backend + frontend)
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: keyraccoon_backend
+    container_name: keyraccoon-app
     environment:
-      # Server Configuration
-      SERVER_PORT: 3000
-      SERVER_HOST: 0.0.0.0
-      ENVIRONMENT: development
-      
-      # Database Configuration
+      # Server
+      SERVER_PORT: "3000"
+      SERVER_HOST: "0.0.0.0"
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+
+      # Database
       DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: password
-      DB_NAME: keyraccoon
-      DB_SSLMODE: disable
-      
-      # Redis Configuration
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_NAME: ${DB_NAME:-keyraccoon}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+
+      # Redis
       REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASS: ""
-      REDIS_DB: 0
-      
-      # JWT Configuration
-      JWT_SECRET: your-secret-key-change-in-production
-      JWT_EXPIRE: 60
-      
-      # Admin Configuration
-      ADMIN_EMAIL: admin@keyraccoon.com
-      ADMIN_PASSWORD: AdminPassword123
-      
-      # CORS Configuration
-      CORS_ORIGIN: "*"
+      REDIS_PORT: "6379"
+      REDIS_PASS: ${REDIS_PASS:-}
+      REDIS_DB: "0"
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRE: ${JWT_EXPIRE:-60}
+
+      # Admin seed
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@keyraccoon.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminPassword123}
+
+      # CORS
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
     ports:
-      - "3000:3000"
+      - "${APP_PORT:-80}:80"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - keyraccoon-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      - keyraccoon
     restart: unless-stopped
 
-  # ============================================
-  # Frontend - React/Vite with Nginx
-  # ============================================
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    container_name: keyraccoon_frontend
-    environment:
-      # API endpoint for frontend
-      VITE_API_BASE_URL: http://localhost:3000
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-    networks:
-      - keyraccoon-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
-    restart: unless-stopped
-
-# ============================================
-# Networks
-# ============================================
 networks:
-  keyraccoon-network:
+  keyraccoon:
     driver: bridge
 
-# ============================================
-# Volumes
-# ============================================
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local

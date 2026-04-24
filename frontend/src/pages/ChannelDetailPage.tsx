@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Key, Cpu, X, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Key, Cpu, X, RefreshCw, Pencil, Users, UserPlus, UserMinus } from 'lucide-react'
 import { api } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import type { User } from '../types'
 
 interface Channel {
   id: number
@@ -11,6 +12,8 @@ interface Channel {
   endpoint?: string
   description: string
   is_active: boolean
+  budget: number
+  budget_used: number
   api_keys?: APIKey[]
   models?: Model[]
 }
@@ -59,6 +62,16 @@ export default function ChannelDetailPage() {
   })
   const [savingModel, setSavingModel] = useState(false)
   
+  // Model Edit state
+  const [editingModel, setEditingModel] = useState<Model | null>(null)
+  const [editModelForm, setEditModelForm] = useState({
+    display_name: '',
+    token_price: 0,
+    system_prompt: '',
+    is_active: true,
+  })
+  const [savingEditModel, setSavingEditModel] = useState(false)
+  
   // Autocheck Models state
   const [showAutocheckModal, setShowAutocheckModal] = useState(false)
   const [fetchingModels, setFetchingModels] = useState(false)
@@ -66,8 +79,15 @@ export default function ChannelDetailPage() {
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set())
   const [savingBulkModels, setSavingBulkModels] = useState(false)
 
+  // User Assignment state
+  const [channelUsers, setChannelUsers] = useState<User[]>([])
+  const [allUsers, setAllUsers] = useState<User[]>([])
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [loadingUsers, setLoadingUsers] = useState(false)
+
   const canEdit = hasPermission('edit:channels')
   const canDelete = hasPermission('delete:channels')
+  const isAdmin = hasPermission('view:users')
 
   useEffect(() => {
     loadChannel()
@@ -244,6 +264,91 @@ export default function ChannelDetailPage() {
     }
   }
 
+  // Model Edit functions
+  function openEditModel(model: Model) {
+    setEditingModel(model)
+    setEditModelForm({
+      display_name: model.display_name || '',
+      token_price: model.token_price || 0,
+      system_prompt: model.system_prompt || '',
+      is_active: model.is_active,
+    })
+  }
+
+  async function handleEditModel() {
+    if (!id || !editingModel) return
+    setSavingEditModel(true)
+    try {
+      await api.updateChannelModel(parseInt(id), editingModel.id, editModelForm)
+      setEditingModel(null)
+      loadChannel()
+    } catch (err) {
+      console.error('Failed to update model:', err)
+      alert('Failed to update model')
+    } finally {
+      setSavingEditModel(false)
+    }
+  }
+
+  // User Assignment functions
+  async function loadChannelUsers() {
+    if (!id) return
+    setLoadingUsers(true)
+    try {
+      const res = await api.getChannelUsers(parseInt(id))
+      const data = res as { users?: User[] }
+      setChannelUsers(data?.users || [])
+    } catch (err) {
+      console.error('Failed to load channel users:', err)
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  async function loadAllUsers() {
+    try {
+      const res = await api.getUsers(100)
+      const data = res as { users?: User[] }
+      setAllUsers(data?.users || [])
+    } catch (err) {
+      console.error('Failed to load users:', err)
+    }
+  }
+
+  async function handleAssignUser(userId: number) {
+    if (!id) return
+    try {
+      await api.bindUserToChannel(parseInt(id), userId)
+      loadChannelUsers()
+    } catch (err) {
+      console.error('Failed to assign user:', err)
+      alert('Failed to assign user')
+    }
+  }
+
+  async function handleUnassignUser(userId: number) {
+    if (!id || !confirm('Are you sure you want to unassign this user?')) return
+    try {
+      await api.unbindUserFromChannel(parseInt(id), userId)
+      loadChannelUsers()
+    } catch (err) {
+      console.error('Failed to unassign user:', err)
+      alert('Failed to unassign user')
+    }
+  }
+
+  function openAssignModal() {
+    loadAllUsers()
+    setShowAssignModal(true)
+  }
+
+  // Load channel users when channel loads
+  useEffect(() => {
+    if (channel && isAdmin) {
+      loadChannelUsers()
+    }
+  }, [channel])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -324,6 +429,68 @@ export default function ChannelDetailPage() {
               {channel.models?.length || 0} models
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Budget Section */}
+      <div className="card-elevated p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[16px] font-medium text-white tracking-body flex items-center gap-2">
+            <Key className="w-4 h-4" />
+            Budget
+          </h3>
+          {canEdit && channel.budget_used > 0 && (
+            <button
+              onClick={async () => {
+                if (!id || !confirm('Reset budget usage to $0.00?')) return
+                try {
+                  await api.resetChannelBudget(parseInt(id))
+                  loadChannel()
+                } catch {
+                  alert('Failed to reset budget')
+                }
+              }}
+              className="btn-secondary text-[12px] px-3 py-1.5"
+            >
+              Reset Usage
+            </button>
+          )}
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-3 glass-subtle rounded-lg">
+            <span className="text-[14px] text-text-secondary tracking-body">Budget Limit</span>
+            <span className="text-[14px] font-medium text-white">
+              {channel.budget <= 0 ? 'Unlimited' : `$${channel.budget.toFixed(4)}`}
+            </span>
+          </div>
+          <div className="flex items-center justify-between p-3 glass-subtle rounded-lg">
+            <span className="text-[14px] text-text-secondary tracking-body">Used</span>
+            <span className="text-[14px] font-medium text-white">
+              ${channel.budget_used.toFixed(4)}
+            </span>
+          </div>
+          {channel.budget > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[12px] text-text-dim tracking-body">
+                  {((channel.budget_used / channel.budget) * 100).toFixed(1)}% used
+                </span>
+                <span className="text-[12px] text-text-dim tracking-body">
+                  ${(channel.budget - channel.budget_used).toFixed(4)} remaining
+                </span>
+              </div>
+              <div className="w-full h-2 bg-white/[0.05] rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    channel.budget_used / channel.budget > 0.9 ? 'bg-raycast-red' :
+                    channel.budget_used / channel.budget > 0.7 ? 'bg-raycast-orange' :
+                    'bg-raycast-green'
+                  }`}
+                  style={{ width: `${Math.min((channel.budget_used / channel.budget) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -541,14 +708,24 @@ export default function ChannelDetailPage() {
                       </p>
                     )}
                   </div>
-                  {canDelete && (
-                    <button
-                      onClick={() => handleDeleteModel(model.id)}
-                      className="p-1.5 text-text-muted hover:text-raycast-red transition-colors rounded-lg hover:bg-white/[0.05]"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {canEdit && (
+                      <button
+                        onClick={() => openEditModel(model)}
+                        className="p-1.5 text-text-muted hover:text-raycast-blue transition-colors rounded-lg hover:bg-white/[0.05]"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        onClick={() => handleDeleteModel(model.id)}
+                        className="p-1.5 text-text-muted hover:text-raycast-red transition-colors rounded-lg hover:bg-white/[0.05]"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))
@@ -557,6 +734,185 @@ export default function ChannelDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Assigned Users Section */}
+      {isAdmin && (
+        <div className="card-elevated p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[16px] font-medium text-white tracking-body flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Assigned Users
+            </h3>
+            {canEdit && (
+              <button
+                onClick={openAssignModal}
+                className="btn-primary text-[12px] px-3 py-1.5 flex items-center gap-1"
+              >
+                <UserPlus className="w-3 h-3" />
+                Assign User
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {loadingUsers ? (
+              <p className="text-[12px] text-text-muted text-center py-4">Loading users...</p>
+            ) : channelUsers.length === 0 ? (
+              <p className="text-[12px] text-text-muted text-center py-4">No users assigned yet</p>
+            ) : (
+              channelUsers.map((user) => (
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between p-3 glass-subtle rounded-lg hover:bg-white/[0.04] transition-all"
+                >
+                  <div className="flex-1">
+                    <p className="text-[14px] text-text-secondary tracking-body">{user.name || user.email}</p>
+                    <p className="text-[12px] text-text-muted tracking-body">{user.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="badge">{user.role}</span>
+                    {canEdit && (
+                      <button
+                        onClick={() => handleUnassignUser(user.id)}
+                        className="p-1.5 text-text-muted hover:text-raycast-red transition-colors rounded-lg hover:bg-white/[0.05]"
+                      >
+                        <UserMinus className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Assign User Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay">
+          <div className="glass-strong w-full max-w-md max-h-[70vh] flex flex-col relative rounded-xl shadow-2xl border border-white/[0.1]">
+            <div className="p-5 border-b border-white/[0.08]">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[18px] font-medium text-white tracking-body">Assign User</h3>
+                <button
+                  onClick={() => setShowAssignModal(false)}
+                  className="p-1.5 text-text-muted hover:text-white transition-all rounded-lg hover:bg-white/[0.1]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-[12px] text-text-muted mt-1">Select a user to assign to this channel</p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              <div className="space-y-2">
+                {allUsers
+                  .filter(u => !channelUsers.some(cu => cu.id === u.id))
+                  .map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => {
+                        handleAssignUser(user.id)
+                        setShowAssignModal(false)
+                      }}
+                      className="w-full flex items-center justify-between p-3 glass-subtle rounded-lg hover:bg-white/[0.04] transition-all text-left"
+                    >
+                      <div>
+                        <p className="text-[14px] text-text-secondary tracking-body">{user.name || user.email}</p>
+                        <p className="text-[12px] text-text-muted tracking-body">{user.email}</p>
+                      </div>
+                      <span className="badge">{user.role}</span>
+                    </button>
+                  ))}
+                {allUsers.filter(u => !channelUsers.some(cu => cu.id === u.id)).length === 0 && (
+                  <p className="text-[12px] text-text-muted text-center py-4">All users are already assigned</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Model Modal */}
+      {editingModel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay">
+          <div className="glass-strong w-full max-w-lg p-5 relative rounded-xl shadow-2xl border border-white/[0.1]">
+            <button
+              onClick={() => setEditingModel(null)}
+              className="absolute top-3 right-3 p-1.5 text-text-muted hover:text-white transition-all rounded-lg hover:bg-white/[0.1]"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <h3 className="text-[18px] font-medium text-white tracking-body mb-4">
+              Edit Model: {editingModel.name}
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  value={editModelForm.display_name}
+                  onChange={(e) => setEditModelForm({ ...editModelForm, display_name: e.target.value })}
+                  placeholder="GPT-4"
+                  className="input-dark"
+                />
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                  Token Price (per 1K tokens)
+                </label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={editModelForm.token_price}
+                  onChange={(e) => setEditModelForm({ ...editModelForm, token_price: parseFloat(e.target.value) || 0 })}
+                  className="input-dark"
+                />
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                  System Prompt
+                </label>
+                <textarea
+                  value={editModelForm.system_prompt}
+                  onChange={(e) => setEditModelForm({ ...editModelForm, system_prompt: e.target.value })}
+                  placeholder="You are a helpful assistant..."
+                  rows={3}
+                  className="input-dark resize-none"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="model-active"
+                  checked={editModelForm.is_active}
+                  onChange={(e) => setEditModelForm({ ...editModelForm, is_active: e.target.checked })}
+                  className="rounded"
+                />
+                <label htmlFor="model-active" className="text-[12px] text-text-secondary tracking-body">
+                  Active
+                </label>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setEditingModel(null)}
+                  className="btn-secondary text-[12px] px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditModel}
+                  disabled={savingEditModel}
+                  className="btn-primary text-[12px] px-3 py-1.5 disabled:opacity-50"
+                >
+                  {savingEditModel ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Autocheck Models Modal */}
       {showAutocheckModal && (

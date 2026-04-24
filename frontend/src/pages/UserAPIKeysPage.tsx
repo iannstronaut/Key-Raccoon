@@ -15,14 +15,15 @@ export default function UserAPIKeysPage() {
     user_id: 0,
     name: '',
     usage_limit: 0,
+    token_limit: 0,
     expires_at: '',
     channel_ids: [] as number[],
     model_ids: [] as number[],
   })
   const [selectedChannelModels, setSelectedChannelModels] = useState<Model[]>([])
   const [loadingModels, setLoadingModels] = useState(false)
+  const [newKeyValue, setNewKeyValue] = useState<string | null>(null)
   const { hasPermission, user } = useAuth()
-  
   const canEdit = hasPermission('edit:users')
   const isAdmin = hasPermission('view:users')
 
@@ -36,7 +37,7 @@ export default function UserAPIKeysPage() {
       const [apiKeysRes, usersRes, channelsRes] = await Promise.all([
         isAdmin ? api.getUserAPIKeys() : api.getUserAPIKeysByUser(user?.id || 0),
         isAdmin ? api.getUsers() : Promise.resolve({ users: [] }),
-        api.getChannels(),
+        isAdmin ? api.getChannels() : api.getMyChannels(),
       ])
 
       const apiKeysData = apiKeysRes as { api_keys?: UserAPIKey[] }
@@ -62,17 +63,29 @@ export default function UserAPIKeysPage() {
     setLoadingModels(true)
     try {
       const models: Model[] = []
-      for (const channelId of channelIds) {
-        try {
-          const modelsRes = await api.getChannelModels(channelId)
-          const modelsData = modelsRes as { models?: Model[] }
-          if (modelsData?.models) {
-            models.push(...modelsData.models)
+
+      if (isAdmin) {
+        for (const channelId of channelIds) {
+          try {
+            const modelsRes = await api.getChannelModels(channelId)
+            const modelsData = modelsRes as { models?: Model[] }
+            if (modelsData?.models) {
+              models.push(...modelsData.models)
+            }
+          } catch (err) {
+            console.error(`Failed to load models for channel ${channelId}:`, err)
           }
-        } catch (err) {
-          console.error(`Failed to load models for channel ${channelId}:`, err)
+        }
+      } else {
+        // For regular users, models are already included in my-channels response
+        for (const channelId of channelIds) {
+          const ch = channels.find(c => c.id === channelId)
+          if (ch?.models) {
+            models.push(...(ch.models as Model[]))
+          }
         }
       }
+
       setSelectedChannelModels(models)
     } catch (err) {
       console.error('Failed to load models:', err)
@@ -85,7 +98,6 @@ export default function UserAPIKeysPage() {
     const newChannelIds = formData.channel_ids.includes(channelId)
       ? formData.channel_ids.filter(id => id !== channelId)
       : [...formData.channel_ids, channelId]
-    
     setFormData({ ...formData, channel_ids: newChannelIds, model_ids: [] })
     loadModelsForSelectedChannels(newChannelIds)
   }
@@ -93,16 +105,35 @@ export default function UserAPIKeysPage() {
   async function handleCreateAPIKey(e: React.FormEvent) {
     e.preventDefault()
     try {
-      const response = await api.createUserAPIKey({
-        ...formData,
-        expires_at: formData.expires_at || undefined,
-      })
+      let response: unknown
+
+      if (isAdmin) {
+        response = await api.createUserAPIKey({
+          ...formData,
+          expires_at: formData.expires_at || undefined,
+        })
+      } else {
+        response = await api.createSelfAPIKey({
+          name: formData.name,
+          channel_ids: formData.channel_ids,
+          model_ids: formData.model_ids,
+          token_limit: formData.token_limit,
+          expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : undefined,
+        })
+      }
+
       if (response && typeof response === 'object' && !('error' in response)) {
+        // Show the key value once
+        const keyData = response as { key?: string }
+        if (keyData.key) {
+          setNewKeyValue(keyData.key)
+        }
         setModalOpen(false)
         setFormData({
           user_id: 0,
           name: '',
           usage_limit: 0,
+          token_limit: 0,
           expires_at: '',
           channel_ids: [],
           model_ids: [],
@@ -119,7 +150,11 @@ export default function UserAPIKeysPage() {
   async function handleDeleteAPIKey(id: number) {
     if (!confirm('Are you sure you want to delete this API key?')) return
     try {
-      await api.deleteUserAPIKey(id)
+      if (isAdmin) {
+        await api.deleteUserAPIKey(id)
+      } else {
+        await api.deleteSelfAPIKey(id)
+      }
       loadData()
     } catch (err) {
       alert('Error deleting API key')
@@ -155,19 +190,49 @@ export default function UserAPIKeysPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-[20px] font-medium text-white tracking-body">
-            User API Keys
+            {isAdmin ? 'User API Keys' : 'My API Keys'}
           </h2>
           <p className="text-[14px] text-text-muted mt-0.5 tracking-body">
-            Manage user API keys for accessing the system
+            {isAdmin ? 'Manage user API keys for accessing the system' : 'Manage your API keys'}
           </p>
         </div>
-        {canEdit && (
-          <button onClick={() => setModalOpen(true)} className="btn-primary flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            Create API Key
-          </button>
-        )}
+        <button onClick={() => setModalOpen(true)} className="btn-primary flex items-center gap-2">
+          <Plus className="w-4 h-4" />
+          Create API Key
+        </button>
       </div>
+
+      {/* New Key Display */}
+      {newKeyValue && (
+        <div className="card-elevated p-4 border border-raycast-green/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[14px] font-medium text-raycast-green tracking-body">API Key Created</p>
+              <p className="text-[12px] text-text-muted tracking-body mt-1">
+                Copy this key now. You won't be able to see it again.
+              </p>
+              <code className="text-[12px] font-mono text-text-secondary mt-2 block break-all">
+                {newKeyValue}
+              </code>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => copyToClipboard(newKeyValue)}
+                className="btn-primary text-[12px] px-3 py-1.5 flex items-center gap-1"
+              >
+                <Copy className="w-3 h-3" />
+                Copy
+              </button>
+              <button
+                onClick={() => setNewKeyValue(null)}
+                className="btn-secondary text-[12px] px-3 py-1.5"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card-elevated overflow-hidden">
         <div className="overflow-x-auto">
@@ -229,7 +294,7 @@ export default function UserAPIKeysPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <code className="text-[12px] font-mono text-text-secondary">
-                          {showKey[apiKey.id] ? apiKey.key : '••••••••••••••••'}
+                          {showKey[apiKey.id] ? apiKey.key : '••••••••••••••'}
                         </code>
                         <button
                           onClick={() => toggleShowKey(apiKey.id)}
@@ -264,14 +329,12 @@ export default function UserAPIKeysPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        {canEdit && (
-                          <button
-                            onClick={() => handleDeleteAPIKey(apiKey.id)}
-                            className="p-1.5 text-text-muted hover:text-raycast-red transition-colors rounded-lg hover:bg-white/[0.05]"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDeleteAPIKey(apiKey.id)}
+                          className="p-1.5 text-text-muted hover:text-raycast-red transition-colors rounded-lg hover:bg-white/[0.05]"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -283,7 +346,7 @@ export default function UserAPIKeysPage() {
       </div>
 
       {/* Create API Key Modal */}
-      {canEdit && modalOpen && (
+      {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-overlay">
           <div className="glass-strong w-full max-w-2xl p-5 relative rounded-xl shadow-2xl border border-white/[0.1] max-h-[90vh] overflow-y-auto">
             <button
@@ -293,28 +356,30 @@ export default function UserAPIKeysPage() {
               <X className="w-4 h-4" />
             </button>
             <h3 className="text-[18px] font-medium text-white tracking-body mb-4">
-              Create User API Key
+              Create API Key
             </h3>
             <form onSubmit={handleCreateAPIKey} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
-                    User *
-                  </label>
-                  <select
-                    value={formData.user_id}
-                    onChange={(e) => setFormData({ ...formData, user_id: parseInt(e.target.value) })}
-                    required
-                    className="input-dark"
-                  >
-                    <option value={0}>Select user</option>
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.email} ({user.name})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {isAdmin && (
+                  <div>
+                    <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                      User *
+                    </label>
+                    <select
+                      value={formData.user_id}
+                      onChange={(e) => setFormData({ ...formData, user_id: parseInt(e.target.value) })}
+                      required
+                      className="input-dark"
+                    >
+                      <option value={0}>Select user</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.email} ({u.name})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
                     Name *
@@ -331,19 +396,35 @@ export default function UserAPIKeysPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
-                    Usage Limit (0 = unlimited)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.usage_limit}
-                    onChange={(e) => setFormData({ ...formData, usage_limit: parseInt(e.target.value) || 0 })}
-                    placeholder="0"
-                    className="input-dark"
-                  />
-                </div>
+                {isAdmin ? (
+                  <div>
+                    <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                      Usage Limit (0 = unlimited)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.usage_limit}
+                      onChange={(e) => setFormData({ ...formData, usage_limit: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      className="input-dark"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                      Token Limit (0 = unlimited)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.token_limit}
+                      onChange={(e) => setFormData({ ...formData, token_limit: parseInt(e.target.value) || 0 })}
+                      placeholder="0"
+                      className="input-dark"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
                     Expires At (optional)
@@ -359,20 +440,26 @@ export default function UserAPIKeysPage() {
 
               <div>
                 <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
-                  Allowed Channels (empty = all channels)
+                  {isAdmin ? 'Allowed Channels (empty = all channels)' : 'Select Channels *'}
                 </label>
                 <div className="glass-subtle p-3 rounded-lg max-h-32 overflow-y-auto space-y-1">
-                  {channels.map((channel) => (
-                    <label key={channel.id} className="flex items-center gap-2 cursor-pointer hover:bg-white/[0.02] p-1 rounded">
-                      <input
-                        type="checkbox"
-                        checked={formData.channel_ids.includes(channel.id)}
-                        onChange={() => handleChannelToggle(channel.id)}
-                        className="rounded"
-                      />
-                      <span className="text-[12px] text-text-secondary">{channel.name} ({channel.type})</span>
-                    </label>
-                  ))}
+                  {channels.length === 0 ? (
+                    <p className="text-[12px] text-text-muted text-center">
+                      {isAdmin ? 'No channels available' : 'No channels assigned to you'}
+                    </p>
+                  ) : (
+                    channels.map((channel) => (
+                      <label key={channel.id} className="flex items-center gap-2 cursor-pointer hover:bg-white/[0.02] p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={formData.channel_ids.includes(channel.id)}
+                          onChange={() => handleChannelToggle(channel.id)}
+                          className="rounded"
+                        />
+                        <span className="text-[12px] text-text-secondary">{channel.name} ({channel.type})</span>
+                      </label>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -427,7 +514,11 @@ export default function UserAPIKeysPage() {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={!formData.name.trim() || (!isAdmin && formData.channel_ids.length === 0)}
+                >
                   Create API Key
                 </button>
               </div>

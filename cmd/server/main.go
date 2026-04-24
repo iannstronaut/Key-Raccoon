@@ -59,13 +59,18 @@ func main() {
 	app.Use(appmiddleware.RequestLogger())
 	handlers.RegisterHealthRoutes(app)
 
+	// Initialize LogService (writes directly to PostgreSQL, no Redis buffer)
+	logRepo := repositories.NewRequestLogRepository(config.GetDB())
+	logService := services.NewLogService(logRepo)
+
 	// API routes under /api prefix
 	api := app.Group("/api")
 	routes.SetupUserRoutes(api, config.GetDB())
 	routes.SetupChannelRoutes(api, config.GetDB())
 	routes.SetupProxyRoutes(api, config.GetDB())
 	routes.SetupUserAPIKeyRoutes(api, config.GetDB())
-	routes.SetupAPIV1Routes(api, config.GetDB())
+	routes.SetupLogRoutes(api, config.GetDB(), logService)
+	routes.SetupAPIV1Routes(api, config.GetDB(), logService)
 
 	// Note: Dashboard/frontend routes are served by a separate React+Vite service.
 	// The Go backend only serves API endpoints. See /frontend for the UI.

@@ -295,3 +295,39 @@ func (s *ChannelService) UnbindUserFromChannel(userID, channelID uint) error {
 func (s *ChannelService) GetUserChannels(userID uint) ([]models.Channel, error) {
 	return s.channelRepo.GetByUserID(userID)
 }
+
+func (s *ChannelService) GetChannelUsers(channelID uint) ([]models.User, error) {
+	channel, err := s.channelRepo.GetByID(channelID)
+	if err != nil {
+		return nil, err
+	}
+	return s.channelRepo.GetUsersByChannelID(channel.ID)
+}
+
+func (s *ChannelService) GetUserChannelsWithModels(userID uint) ([]models.Channel, error) {
+	return s.channelRepo.GetByUserIDWithModels(userID)
+}
+
+// CheckBudget checks if a channel has remaining budget.
+// Returns true if budget is unlimited (0) or budget_used < budget.
+func (s *ChannelService) CheckBudget(channelID uint) (bool, error) {
+	channel, err := s.channelRepo.GetByID(channelID)
+	if err != nil {
+		return false, err
+	}
+	return channel.HasBudgetAvailable(), nil
+}
+
+// RecordBudgetUsage atomically increments budget_used for a channel.
+// Safe for concurrent access.
+func (s *ChannelService) RecordBudgetUsage(channelID uint, cost float64) error {
+	if cost <= 0 {
+		return nil
+	}
+	return s.channelRepo.IncrementBudgetUsed(channelID, cost)
+}
+
+// ResetBudgetUsed resets budget_used to 0 for a channel.
+func (s *ChannelService) ResetBudgetUsed(channelID uint) error {
+	return s.channelRepo.ResetBudgetUsed(channelID)
+}

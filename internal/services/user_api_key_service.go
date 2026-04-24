@@ -277,6 +277,117 @@ func (s *UserAPIKeyService) IncrementUsage(id uint) error {
 	return s.apiKeyRepo.IncrementUsage(id)
 }
 
+// CreateSelfServiceAPIKey creates an API key for the authenticated user (self-service)
+func (s *UserAPIKeyService) CreateSelfServiceAPIKey(
+	userID uint,
+	name string,
+	channelIDs []uint,
+	modelIDs []uint,
+	tokenLimit int64,
+	expiresAt *time.Time,
+) (*models.UserAPIKey, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, errors.New("api key name is required")
+	}
+
+	// Verify user exists
+	if _, err := s.userRepo.GetByID(userID); err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	if len(channelIDs) == 0 {
+		return nil, errors.New("at least one channel is required")
+	}
+
+	// Verify all channels are assigned to this user
+	userChannels, err := s.channelRepo.GetByUserID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user channels: %w", err)
+	}
+
+	userChannelMap := make(map[uint]bool)
+	for _, ch := range userChannels {
+		userChannelMap[ch.ID] = true
+	}
+
+	for _, chID := range channelIDs {
+		if !userChannelMap[chID] {
+			return nil, fmt.Errorf("channel %d is not assigned to you", chID)
+		}
+	}
+
+	// Verify models belong to selected channels
+	if len(modelIDs) > 0 {
+		for _, modelID := range modelIDs {
+			model, err := s.modelRepo.GetByID(modelID)
+			if err != nil {
+				return nil, fmt.Errorf("model %d not found", modelID)
+			}
+			found := false
+			for _, chID := range channelIDs {
+				if model.ChannelID == chID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return nil, fmt.Errorf("model %d does not belong to any selected channel", modelID)
+			}
+		}
+	}
+
+	// Generate API key
+	key, err := s.GenerateAPIKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate api key: %w", err)
+	}
+
+	apiKey := &models.UserAPIKey{
+		UserID:     userID,
+		Name:       name,
+		Key:        key,
+		IsActive:   true,
+		TokenLimit: tokenLimit,
+		UsageLimit: 0,
+		UsageCount: 0,
+		ExpiresAt:  expiresAt,
+	}
+
+	if err := s.apiKeyRepo.Create(apiKey); err != nil {
+		return nil, fmt.Errorf("failed to create api key: %w", err)
+	}
+
+	// Add channels
+	for _, channelID := range channelIDs {
+		if err := s.apiKeyRepo.AddChannel(apiKey.ID, channelID); err != nil {
+			return nil, fmt.Errorf("failed to add channel: %w", err)
+		}
+	}
+
+	// Add models
+	for _, modelID := range modelIDs {
+		if err := s.apiKeyRepo.AddModel(apiKey.ID, modelID); err != nil {
+			return nil, fmt.Errorf("failed to add model: %w", err)
+		}
+	}
+
+	// Reload with relations
+	return s.apiKeyRepo.GetByID(apiKey.ID)
+}
+
+// DeleteSelfAPIKey deletes an API key owned by the authenticated user
+func (s *UserAPIKeyService) DeleteSelfAPIKey(keyID uint, userID uint) error {
+	apiKey, err := s.apiKeyRepo.GetByID(keyID)
+	if err != nil {
+		return err
+	}
+	if apiKey.UserID != userID {
+		return errors.New("you can only delete your own api keys")
+	}
+	return s.apiKeyRepo.Delete(keyID)
+}
+
 // ============ TOKEN/CREDIT TRACKING (Compatible with legacy APIKey) ============
 
 // HasTokenAvailable checks token availability
@@ -289,39 +400,42 @@ func (s *UserAPIKeyService) HasCreditAvailable(keyID uint, requiredCredit float6
 	return s.apiKeyRepo.HasCreditAvailable(keyID, requiredCredit)
 }
 
-// RecordTokenUsage records token usage in Redis (real-time) or database (fallback)
+// RecordTokenUsage records token usage in both Redis (real-time cache) and database (persistent)
 func (s *UserAPIKeyService) RecordTokenUsage(keyID uint, tokens int64) error {
+	// Always update the database for persistent tracking
+	dbErr := s.apiKeyRepo.UpdateTokenUsage(keyID, tokens)
+
+	// Also update Redis for real-time reads (optional, best-effort)
 	ctx := context.Background()
 	if s.redis != nil {
 		key := fmt.Sprintf("user_apikey:%d:tokens", keyID)
-
 		if err := s.redis.IncrBy(ctx, key, tokens).Err(); err == nil {
 			s.redis.Expire(ctx, key, 24*time.Hour)
-			return nil
 		}
 	}
 
-	return s.apiKeyRepo.UpdateTokenUsage(keyID, tokens)
+	return dbErr
 }
 
-// RecordCreditUsage records credit usage in Redis (real-time) or database (fallback)
+// RecordCreditUsage records credit usage in both Redis (real-time cache) and database (persistent)
 func (s *UserAPIKeyService) RecordCreditUsage(keyID uint, credit float64) error {
+	// Always update the database for persistent tracking
+	dbErr := s.apiKeyRepo.UpdateCreditUsage(keyID, credit)
+
+	// Also update Redis for real-time reads (optional, best-effort)
 	ctx := context.Background()
 	if s.redis != nil {
 		key := fmt.Sprintf("user_apikey:%d:credit", keyID)
-
 		if err := s.redis.IncrByFloat(ctx, key, credit).Err(); err == nil {
 			s.redis.Expire(ctx, key, 24*time.Hour)
-			return nil
 		}
 	}
 
-	return s.apiKeyRepo.UpdateCreditUsage(keyID, credit)
+	return dbErr
 }
 
-// GetRealtimeUsage returns combined database and Redis usage stats
+// GetRealtimeUsage returns usage stats from the database
 func (s *UserAPIKeyService) GetRealtimeUsage(keyID uint) (map[string]any, error) {
-	ctx := context.Background()
 	apiKey, err := s.apiKeyRepo.GetByID(keyID)
 	if err != nil {
 		return nil, err
@@ -329,18 +443,6 @@ func (s *UserAPIKeyService) GetRealtimeUsage(keyID uint) (map[string]any, error)
 
 	tokenUsed := apiKey.TokenUsed
 	creditUsed := apiKey.CreditUsed
-
-	if s.redis != nil {
-		rtTokens, err := s.redis.Get(ctx, fmt.Sprintf("user_apikey:%d:tokens", keyID)).Int64()
-		if err == nil {
-			tokenUsed += rtTokens
-		}
-
-		rtCredit, err := s.redis.Get(ctx, fmt.Sprintf("user_apikey:%d:credit", keyID)).Float64()
-		if err == nil {
-			creditUsed += rtCredit
-		}
-	}
 
 	tokenRemaining := int64(-1)
 	if apiKey.TokenLimit != -1 && apiKey.TokenLimit != 0 {

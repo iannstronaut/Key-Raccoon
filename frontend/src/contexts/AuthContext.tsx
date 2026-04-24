@@ -99,6 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return isAdmin;
       case 'view:analytics':
         return true; // All authenticated users
+      case 'view:logs':
+        return isAdmin;
+      case 'view:my-channels':
+        return true; // All authenticated users
+      case 'create:own-api-keys':
+        return true; // All authenticated users
       default:
         return false;
     }
