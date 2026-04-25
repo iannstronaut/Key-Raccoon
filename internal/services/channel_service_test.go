@@ -27,11 +27,11 @@ func TestChannelServiceLifecycle(t *testing.T) {
 		t.Fatalf("userRepo.Create() error = %v", err)
 	}
 
-	channel, err := service.CreateChannel("OpenAI Prod", "openai", "Primary", "")
+	channel, err := service.CreateChannel("OpenAI Prod", "openai", "Primary", "", 0, "price")
 	if err != nil {
 		t.Fatalf("CreateChannel() error = %v", err)
 	}
-	if _, err := service.CreateChannel("OpenAI Prod", "openai", "Duplicate", ""); err == nil {
+	if _, err := service.CreateChannel("OpenAI Prod", "openai", "Duplicate", "", 0, "price"); err == nil {
 		t.Fatal("CreateChannel() duplicate error = nil, want error")
 	}
 

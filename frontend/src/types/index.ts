@@ -16,6 +16,7 @@ export interface Channel {
   is_active: boolean;
   budget: number;
   budget_used: number;
+  budget_type?: string; // "price" or "token"
   models?: Model[];
   api_keys?: ChannelAPIKey[];
 }

@@ -236,9 +236,17 @@ func (h *ChatHandler) ChatCompletion(c *fiber.Ctx) error {
 		cost = float64(inputTokens+outputTokens) / 1000.0 * selectedModel.TokenPrice
 	}
 
-	// Record channel budget usage atomically
-	if cost > 0 {
-		_ = h.channelService.RecordBudgetUsage(selectedChannel.ID, cost)
+	// Record channel budget usage atomically — branch on budget type
+	switch selectedChannel.BudgetType {
+	case "token":
+		totalTokens := inputTokens + outputTokens
+		if totalTokens > 0 {
+			_ = h.channelService.RecordBudgetUsage(selectedChannel.ID, float64(totalTokens))
+		}
+	default: // "price" or empty (backward compat for existing rows)
+		if cost > 0 {
+			_ = h.channelService.RecordBudgetUsage(selectedChannel.ID, cost)
+		}
 	}
 
 	// Log the request asynchronously
