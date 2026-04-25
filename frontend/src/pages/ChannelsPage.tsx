@@ -16,6 +16,7 @@ export default function ChannelsPage() {
     endpoint: "",
     description: "",
     budget: 0,
+    budget_type: "price",
   });
   const { hasPermission } = useAuth();
 
@@ -51,6 +52,7 @@ export default function ChannelsPage() {
           endpoint: "",
           description: "",
           budget: 0,
+          budget_type: "price",
         });
         loadChannels();
       } else {
@@ -176,6 +178,10 @@ export default function ChannelsPage() {
                     <td className="px-4 py-3 text-[12px] text-text-muted tracking-body">
                       {channel.budget <= 0 ? (
                         <span className="text-text-dim">Unlimited</span>
+                      ) : channel.budget_type === "token" ? (
+                        <span>
+                          {channel.budget_used.toLocaleString()} / {channel.budget.toLocaleString()} tokens
+                        </span>
                       ) : (
                         <span>
                           ${channel.budget_used.toFixed(2)} / ${channel.budget.toFixed(2)}
@@ -298,11 +304,26 @@ export default function ChannelsPage() {
               </div>
               <div>
                 <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
+                  Budget Type
+                </label>
+                <select
+                  value={formData.budget_type}
+                  onChange={(e) =>
+                    setFormData({ ...formData, budget_type: e.target.value })
+                  }
+                  className="input-dark"
+                >
+                  <option value="price">Price ($)</option>
+                  <option value="token">Token Count</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-text-tertiary mb-1.5 tracking-body">
                   Budget (0 = unlimited)
                 </label>
                 <input
                   type="number"
-                  step="0.01"
+                  step={formData.budget_type === "token" ? "1" : "0.01"}
                   min="0"
                   value={formData.budget}
                   onChange={(e) =>
@@ -312,7 +333,9 @@ export default function ChannelsPage() {
                   className="input-dark"
                 />
                 <p className="text-[10px] text-text-dim mt-1 tracking-body">
-                  Maximum cost allowed for this channel. 0 means unlimited.
+                  {formData.budget_type === "token"
+                    ? "Maximum token count allowed for this channel. 0 means unlimited."
+                    : "Maximum cost ($) allowed for this channel. 0 means unlimited."}
                 </p>
               </div>
               <div className="flex justify-end gap-2 pt-2">

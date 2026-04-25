@@ -14,6 +14,7 @@ interface Channel {
   is_active: boolean
   budget: number
   budget_used: number
+  budget_type?: string // "price" or "token"
   api_keys?: APIKey[]
   models?: Model[]
 }
@@ -442,7 +443,7 @@ export default function ChannelDetailPage() {
           {canEdit && channel.budget_used > 0 && (
             <button
               onClick={async () => {
-                if (!id || !confirm('Reset budget usage to $0.00?')) return
+                if (!id || !confirm('Reset budget usage to 0?')) return
                 try {
                   await api.resetChannelBudget(parseInt(id))
                   loadChannel()
@@ -460,13 +461,19 @@ export default function ChannelDetailPage() {
           <div className="flex items-center justify-between p-3 glass-subtle rounded-lg">
             <span className="text-[14px] text-text-secondary tracking-body">Budget Limit</span>
             <span className="text-[14px] font-medium text-white">
-              {channel.budget <= 0 ? 'Unlimited' : `$${channel.budget.toFixed(4)}`}
+              {channel.budget <= 0
+                ? 'Unlimited'
+                : channel.budget_type === 'token'
+                  ? `${channel.budget.toLocaleString()} tokens`
+                  : `$${channel.budget.toFixed(4)}`}
             </span>
           </div>
           <div className="flex items-center justify-between p-3 glass-subtle rounded-lg">
             <span className="text-[14px] text-text-secondary tracking-body">Used</span>
             <span className="text-[14px] font-medium text-white">
-              ${channel.budget_used.toFixed(4)}
+              {channel.budget_type === 'token'
+                ? `${channel.budget_used.toLocaleString()} tokens`
+                : `$${channel.budget_used.toFixed(4)}`}
             </span>
           </div>
           {channel.budget > 0 && (
@@ -476,7 +483,9 @@ export default function ChannelDetailPage() {
                   {((channel.budget_used / channel.budget) * 100).toFixed(1)}% used
                 </span>
                 <span className="text-[12px] text-text-dim tracking-body">
-                  ${(channel.budget - channel.budget_used).toFixed(4)} remaining
+                  {channel.budget_type === 'token'
+                    ? `${(channel.budget - channel.budget_used).toLocaleString()} tokens remaining`
+                    : `$${(channel.budget - channel.budget_used).toFixed(4)} remaining`}
                 </span>
               </div>
               <div className="w-full h-2 bg-white/[0.05] rounded-full overflow-hidden">

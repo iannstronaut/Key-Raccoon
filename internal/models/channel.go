@@ -14,9 +14,10 @@ type Channel struct {
 	IsActive    bool           `gorm:"not null;default:true" json:"is_active"`
 	Description string         `gorm:"type:text" json:"description"`
 
-	// Budget: 0 = unlimited, >0 = max cost allowed
+	// Budget: 0 = unlimited, >0 = max allowed (cost or tokens depending on BudgetType)
 	Budget     float64 `gorm:"not null;default:0" json:"budget"`
 	BudgetUsed float64 `gorm:"not null;default:0" json:"budget_used"`
+	BudgetType string  `gorm:"size:20;not null;default:price" json:"budget_type"` // "price" or "token"
 
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
