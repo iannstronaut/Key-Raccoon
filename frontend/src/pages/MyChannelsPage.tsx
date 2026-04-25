@@ -83,7 +83,9 @@ export default function MyChannelsPage() {
                       <span className="text-[12px] text-text-dim">
                         {channel.budget <= 0
                           ? 'Unlimited budget'
-                          : `$${channel.budget_used.toFixed(2)} / $${channel.budget.toFixed(2)}`}
+                          : channel.budget_type === 'token'
+                            ? `${channel.budget_used.toLocaleString()} / ${channel.budget.toLocaleString()} tokens`
+                            : `$${channel.budget_used.toFixed(2)} / $${channel.budget.toFixed(2)}`}
                       </span>
                     </div>
                   </div>
@@ -112,7 +114,11 @@ export default function MyChannelsPage() {
                     <div className="p-2.5 glass-subtle rounded-lg">
                       <div className="flex items-center justify-between">
                         <span className="text-[12px] text-text-muted tracking-body">
-                          {channel.budget <= 0 ? 'Unlimited' : `$${channel.budget_used.toFixed(4)} used of $${channel.budget.toFixed(4)}`}
+                          {channel.budget <= 0
+                            ? 'Unlimited'
+                            : channel.budget_type === 'token'
+                              ? `${channel.budget_used.toLocaleString()} used of ${channel.budget.toLocaleString()} tokens`
+                              : `$${channel.budget_used.toFixed(4)} used of $${channel.budget.toFixed(4)}`}
                         </span>
                         {channel.budget > 0 && (
                           <span className={`text-[11px] font-medium ${
@@ -120,7 +126,9 @@ export default function MyChannelsPage() {
                             channel.budget_used / channel.budget > 0.7 ? 'text-raycast-orange' :
                             'text-raycast-green'
                           }`}>
-                            ${(channel.budget - channel.budget_used).toFixed(4)} remaining
+                            {channel.budget_type === 'token'
+                              ? `${(channel.budget - channel.budget_used).toLocaleString()} tokens remaining`
+                              : `$${(channel.budget - channel.budget_used).toFixed(4)} remaining`}
                           </span>
                         )}
                       </div>

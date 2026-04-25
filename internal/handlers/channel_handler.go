@@ -22,17 +22,19 @@ func NewChannelHandler(channelService *services.ChannelService) *ChannelHandler 
 
 func (h *ChannelHandler) CreateChannel(c *fiber.Ctx) error {
 	var req struct {
-		Name        string `json:"name"`
-		Type        string `json:"type"`
-		Endpoint    string `json:"endpoint"`
-		Description string `json:"description"`
+		Name        string  `json:"name"`
+		Type        string  `json:"type"`
+		Endpoint    string  `json:"endpoint"`
+		Description string  `json:"description"`
+		Budget      float64 `json:"budget"`
+		BudgetType  string  `json:"budget_type"`
 	}
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 
-	channel, err := h.channelService.CreateChannel(req.Name, req.Type, req.Endpoint, req.Description)
+	channel, err := h.channelService.CreateChannel(req.Name, req.Type, req.Endpoint, req.Description, req.Budget, req.BudgetType)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -100,6 +102,7 @@ func (h *ChannelHandler) UpdateChannel(c *fiber.Ctx) error {
 		Endpoint    *string  `json:"endpoint"`
 		IsActive    *bool    `json:"is_active"`
 		Budget      *float64 `json:"budget"`
+		BudgetType  *string  `json:"budget_type"`
 	}
 
 	if err := c.BodyParser(&req); err != nil {
@@ -121,6 +124,9 @@ func (h *ChannelHandler) UpdateChannel(c *fiber.Ctx) error {
 	}
 	if req.Budget != nil {
 		updates["budget"] = *req.Budget
+	}
+	if req.BudgetType != nil {
+		updates["budget_type"] = *req.BudgetType
 	}
 
 	channel, err := h.channelService.UpdateChannel(channelID, updates)
@@ -500,6 +506,7 @@ func sanitizeChannel(channel *models.Channel) fiber.Map {
 		"description": channel.Description,
 		"budget":      channel.Budget,
 		"budget_used": channel.BudgetUsed,
+		"budget_type": channel.BudgetType,
 		"created_at":  channel.CreatedAt,
 		"updated_at":  channel.UpdatedAt,
 		"api_keys":    apiKeys,

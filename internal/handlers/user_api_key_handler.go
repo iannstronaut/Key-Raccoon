@@ -381,6 +381,7 @@ func (h *UserAPIKeyHandler) GetMyChannels(c *fiber.Ctx) error {
 			"description": ch.Description,
 			"budget":      ch.Budget,
 			"budget_used": ch.BudgetUsed,
+			"budget_type": ch.BudgetType,
 			"models":      modelsList,
 		})
 	}

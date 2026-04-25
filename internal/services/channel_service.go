@@ -30,7 +30,7 @@ func NewChannelService(
 	}
 }
 
-func (s *ChannelService) CreateChannel(name, channelType, endpoint, description string) (*models.Channel, error) {
+func (s *ChannelService) CreateChannel(name, channelType, endpoint, description string, budget float64, budgetType string) (*models.Channel, error) {
 	if s.channelRepo == nil || s.apiKeyRepo == nil || s.modelRepo == nil {
 		return nil, errors.New("channel service dependencies are not initialized")
 	}
@@ -39,6 +39,7 @@ func (s *ChannelService) CreateChannel(name, channelType, endpoint, description 
 	channelType = strings.ToLower(strings.TrimSpace(channelType))
 	endpoint = strings.TrimSpace(endpoint)
 	description = strings.TrimSpace(description)
+	budgetType = strings.ToLower(strings.TrimSpace(budgetType))
 
 	if name == "" {
 		return nil, errors.New("channel name required")
@@ -59,6 +60,18 @@ func (s *ChannelService) CreateChannel(name, channelType, endpoint, description 
 		return nil, errors.New("endpoint is required for custom channel type")
 	}
 
+	// Validate budget_type: default to "price" if empty
+	if budgetType == "" {
+		budgetType = "price"
+	}
+	if budgetType != "price" && budgetType != "token" {
+		return nil, fmt.Errorf("invalid budget type: %s (must be 'price' or 'token')", budgetType)
+	}
+
+	if budget < 0 {
+		budget = 0
+	}
+
 	if _, err := s.channelRepo.GetByName(name); err == nil {
 		return nil, errors.New("channel name already exists")
 	} else if !errors.Is(err, repositories.ErrChannelNotFound) {
@@ -70,6 +83,8 @@ func (s *ChannelService) CreateChannel(name, channelType, endpoint, description 
 		Type:        channelType,
 		Endpoint:    endpoint,
 		Description: description,
+		Budget:      budget,
+		BudgetType:  budgetType,
 		IsActive:    true,
 	}
 
@@ -93,6 +108,8 @@ func (s *ChannelService) UpdateChannel(channelID uint, updates map[string]any) (
 		"description": true,
 		"endpoint":    true,
 		"is_active":   true,
+		"budget":      true,
+		"budget_type": true,
 	}
 
 	for key := range updates {
@@ -107,6 +124,14 @@ func (s *ChannelService) UpdateChannel(channelID uint, updates map[string]any) (
 			return nil, errors.New("channel name required")
 		}
 		updates["name"] = name
+	}
+
+	if bt, ok := updates["budget_type"].(string); ok {
+		bt = strings.ToLower(strings.TrimSpace(bt))
+		if bt != "price" && bt != "token" {
+			return nil, fmt.Errorf("invalid budget type: %s (must be 'price' or 'token')", bt)
+		}
+		updates["budget_type"] = bt
 	}
 
 	if err := s.channelRepo.UpdateFields(channelID, updates); err != nil {
